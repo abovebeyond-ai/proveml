@@ -1,0 +1,408 @@
+:root {
+  --bg: #f6f4ef;
+  --panel: #fffdf9;
+  --panel-strong: #ffffff;
+  --ink: #1b2433;
+  --muted: #596173;
+  --line: #d8dde7;
+  --shadow: 0 18px 40px rgba(22, 33, 58, 0.06);
+  --teal: #0f766e;
+  --blue: #2563eb;
+  --violet: #7c3aed;
+  --amber: #c77b12;
+  --red: #c2414d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.08), transparent 24%),
+    var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 "Avenir Next", "Segoe UI", sans-serif;
+}
+
+img {
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+code,
+pre {
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+.wrap {
+  width: min(1100px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.page-header {
+  padding: 72px 0 42px;
+}
+
+.masthead {
+  display: grid;
+  gap: 18px;
+}
+
+.eyebrow,
+.callout-label,
+.card-kicker,
+.example-meta,
+.status-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.1;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+}
+
+h1 {
+  font-size: clamp(3rem, 6vw, 4.8rem);
+}
+
+h2 {
+  font-size: clamp(2rem, 3vw, 2.7rem);
+  margin-bottom: 12px;
+}
+
+h3 {
+  font-size: 1.25rem;
+  margin-bottom: 10px;
+}
+
+.lede {
+  max-width: 760px;
+  font-size: 1.18rem;
+  color: var(--muted);
+}
+
+.actions,
+.syntax-strip,
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.button.primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.syntax-strip {
+  margin-top: 8px;
+}
+
+.syntax-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.92rem;
+}
+
+.syntax-chip.entity {
+  color: var(--teal);
+}
+
+.syntax-chip.fact {
+  color: var(--blue);
+}
+
+.syntax-chip.inference {
+  color: var(--violet);
+}
+
+.section {
+  padding: 34px 0;
+}
+
+.section-tinted {
+  background: rgba(255, 255, 255, 0.34);
+  border-top: 1px solid rgba(216, 221, 231, 0.75);
+  border-bottom: 1px solid rgba(216, 221, 231, 0.75);
+}
+
+.intro-grid,
+.quickstart-grid,
+.repo-grid,
+.example-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.intro-grid,
+.quickstart-grid,
+.repo-grid {
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+}
+
+.callout,
+.card,
+.example-card,
+.api-box,
+.status-card,
+.rendered-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+}
+
+.callout,
+.card,
+.api-box,
+.status-card {
+  padding: 22px;
+}
+
+.card-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.three-up {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.entity-kicker {
+  color: var(--teal);
+}
+
+.fact-kicker {
+  color: var(--blue);
+}
+
+.inference-kicker {
+  color: var(--violet);
+}
+
+.examples-head {
+  margin-bottom: 10px;
+}
+
+.stack {
+  display: grid;
+  gap: 18px;
+}
+
+.example-card {
+  padding: 20px;
+}
+
+.example-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+pre {
+  margin: 0;
+  padding: 18px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #f8fafc;
+  color: #243046;
+  line-height: 1.5;
+}
+
+.rendered-panel {
+  padding: 18px;
+  background: var(--panel-strong);
+}
+
+.rendered-panel p {
+  margin: 0;
+}
+
+.rendered-panel p + p {
+  margin-top: 12px;
+}
+
+.panel-note {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.boundary-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.boundary-row {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+}
+
+.boundary-row.ok {
+  background: rgba(15, 118, 110, 0.08);
+  border-color: rgba(15, 118, 110, 0.25);
+}
+
+.boundary-row.warn {
+  background: rgba(199, 123, 18, 0.09);
+  border-color: rgba(199, 123, 18, 0.25);
+}
+
+.api-list {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.api-list dt {
+  font-weight: 700;
+}
+
+.api-list dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+.plain-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.plain-list.spaced li + li {
+  margin-top: 10px;
+}
+
+.inline-link {
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.page-footer {
+  padding: 26px 0 40px;
+}
+
+.footer-row {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  color: var(--muted);
+}
+
+.proveml-entity {
+  border-bottom: 2px solid var(--entity-color, var(--teal));
+  padding-bottom: 1px;
+}
+
+.proveml-fact {
+  font-weight: 600;
+  padding: 0 1px;
+}
+
+.proveml-fact.proveml-verified {
+  border-bottom: 1.5px dotted var(--entity-color, var(--teal));
+}
+
+.proveml-inference {
+  font-weight: 500;
+  padding: 0 1px;
+}
+
+.proveml-inference.proveml-verified {
+  border-bottom: 1.5px dashed var(--violet);
+}
+
+sup {
+  margin-left: 2px;
+  font-size: 0.68em;
+  color: var(--muted);
+}
+
+@media (max-width: 980px) {
+  .three-up,
+  .intro-grid,
+  .quickstart-grid,
+  .repo-grid,
+  .example-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .wrap {
+    width: min(100% - 28px, 1100px);
+  }
+
+  .page-header {
+    padding-top: 52px;
+  }
+
+  .button,
+  .syntax-chip {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+
+.prose-block {
+  max-width: 860px;
+}
+
+.prose-block p,
+.prose-block li {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: #334155;
+}
+
+.plain-list.numbered {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+.plain-list.numbered li {
+  margin: 0.6rem 0;
+}

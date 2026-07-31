@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProveML</title>
+  <meta name="description" content="ProveML is a Markdown-native verification layer for AI-generated text against structured data.">
+  <link rel="stylesheet" href="./site.css">
+</head>
+<body>
+  <header class="page-header">
+    <div class="wrap masthead">
+      <div class="eyebrow">Markdown-native claim verification</div>
+      <h1>ProveML</h1>
+      <p class="lede">A document-native verification layer for AI-generated text. Models stay open-ended; important claims become deterministic, addressable, and auditable.</p>
+      <div class="actions">
+        <a href="https://github.com/ShaneDeconinck/proveml" class="button primary">View Repository</a>
+        <a href="./agent-reference.md" class="button">Agent reference</a>
+        <a href="./fact-store.md" class="button">Fact-store guide</a>
+      </div>
+      <div class="syntax-strip" aria-label="Core syntax">
+        <code class="syntax-chip entity">@[entity:id]{text}</code>
+        <code class="syntax-chip fact">%[field]{value}</code>
+        <code class="syntax-chip inference">?[label: THRESHOLD]{text}</code>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="section">
+      <div class="wrap intro-grid">
+        <div>
+          <h2>What it adds</h2>
+          <p>Most grounding systems verify around text. ProveML puts the verification boundary inside the text itself. Entity mentions, direct facts, and thresholded inferences can all be checked against a fact store and registry without another model in the loop.</p>
+          <p>It is designed to be easy to pull into an existing flow: one JavaScript package, one verifier, one optional renderer, and no extra model call to perform verification.</p>
+          <p>It also ships with built-in TypeScript declarations, so JavaScript and TypeScript agents can consume the same small runtime without extra wrappers.</p>
+        </div>
+        <div class="callout">
+          <div class="callout-label">Reference implementation</div>
+          <ul class="plain-list">
+            <li><strong>markdown-it plugin</strong> for rendered, verification-aware HTML</li>
+            <li><strong>Embeddable HTML renderer</strong> for direct browser or app integration</li>
+            <li><strong>Standalone verifier</strong> for pipeline checks and audits</li>
+            <li><strong>Threshold registry</strong> with boolean composition</li>
+            <li><strong>Optional reference CSS</strong> with stable classes for easy restyling</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tinted">
+      <div class="wrap">
+        <h2>Core constructs</h2>
+        <div class="card-grid three-up">
+          <article class="card">
+            <div class="card-kicker entity-kicker">Entity</div>
+            <h3>@[entity:id]{text}</h3>
+            <p>Binds the current lexical context to an addressable subject. Facts that follow resolve against this entity until another entity is introduced or a scoped entity block ends.</p>
+          </article>
+          <article class="card">
+            <div class="card-kicker fact-kicker">Fact</div>
+            <h3>%[field]{value}</h3>
+            <p>Checks direct fact reproduction against the current entity path. Equality is exact against the fact store’s canonical representation, including units when present.</p>
+          </article>
+          <article class="card">
+            <div class="card-kicker inference-kicker">Inference</div>
+            <h3>?[label: THRESHOLD]{text}</h3>
+            <p>Verifies qualitative claims through registered predicates such as numeric ranges, missing-value checks, membership, and cross-entity comparisons.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="section">
+      <div class="wrap quickstart-grid">
+        <div>
+          <h2>Agent quick reference</h2>
+          <p>ProveML works best when agents treat it as a small authoring language rather than decorative markup. Bind an entity, reproduce exact stored facts with fact references, and express qualitative judgments through registered thresholds.</p>
+          <ul class="plain-list spaced">
+            <li><strong>Bind first:</strong> write an entity reference before facts.</li>
+            <li><strong>Facts are exact:</strong> `%[price]{29.90}` does not match a stored `29.9`.</li>
+            <li><strong>Inferences are semantic:</strong> use thresholds for ranges, missing values, membership, and comparisons.</li>
+            <li><strong>Coverage is separate:</strong> unsupported prose outside markup is not verified.</li>
+          </ul>
+          <p><a href="./agent-reference.md" class="inline-link">Open the agent reference</a></p>
+        </div>
+        <div class="api-box">
+          <h3>Minimal pattern</h3>
+          <pre><code>@[company:aapl]{Apple Inc.} reported revenue of
+%[revenue]{416161000000 USD} with net income of
+%[netIncome]{112010000000 USD}.
+?[profitable: IS_PROFITABLE]{This is a highly profitable company}.</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tinted">
+      <div class="wrap intro-grid">
+        <div>
+          <h2>Getting data in</h2>
+          <p>ProveML does not need a heavy importer. It expects a flat fact store with keys like <code>company:aapl.revenue</code> and optional unit metadata such as <code>company:aapl.revenue._unit</code>.</p>
+          <p>If your source is already structured JSON, CSV rows, or query results, the mapping step is usually small. That mapping code is often a good place to use AI, because it remains short, inspectable, and easy to test.</p>
+          <p>Once you have a first draft, run <code>npx proveml doctor --facts facts.json</code> to catch obvious key-shape, unit, and missing-name issues before debugging markup.</p>
+          <p><a href="./fact-store.md" class="inline-link">Open the fact-store guide</a></p>
+        </div>
+        <div class="api-box">
+          <h3>Canonical shape</h3>
+          <pre><code>{
+  'company:aapl.name': 'Apple Inc.',
+  'company:aapl.revenue': 416161000000,
+  'company:aapl.revenue._unit': 'USD',
+  'company:aapl.netIncome': 112010000000,
+  'company:aapl.netIncome._unit': 'USD',
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap examples-head">
+        <div>
+          <h2>From markup to verified text</h2>
+          <p>These examples show the source markup next to the rendered result a reader would see.</p>
+        </div>
+      </div>
+      <div class="wrap stack">
+        <article class="example-card">
+          <div class="example-meta">Direct facts</div>
+          <div class="example-grid">
+            <div>
+              <h3>Source</h3>
+              <pre><code>@[company:aapl]{Apple Inc.} reported revenue of
+%[revenue]{416161000000 USD} with net income of
+%[netIncome]{112010000000 USD}.</code></pre>
+            </div>
+            <div>
+              <h3>Rendered</h3>
+              <div class="rendered-panel">
+                <p><span class="proveml-entity" style="--entity-color: #0f766e;">Apple Inc.</span> reported revenue of <span class="proveml-fact proveml-verified" style="--entity-color: #0f766e;">416161000000 USD<sup>✓</sup></span> with net income of <span class="proveml-fact proveml-verified" style="--entity-color: #0f766e;">112010000000 USD<sup>✓</sup></span>.</p>
+                <p class="panel-note">The entity is bound once; both facts resolve against the current entity context.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="example-card">
+          <div class="example-meta">Threshold inference</div>
+          <div class="example-grid">
+            <div>
+              <h3>Source</h3>
+              <pre><code>@[company:msft]{Microsoft Corporation} has
+%[netMargin]{36}%.
+?[high: IS_ABOVE_30]{This exceeds the 30%
+net-margin threshold}.</code></pre>
+            </div>
+            <div>
+              <h3>Rendered</h3>
+              <div class="rendered-panel">
+                <p><span class="proveml-entity" style="--entity-color: #2563eb;">Microsoft Corporation</span> has <span class="proveml-fact proveml-verified" style="--entity-color: #2563eb;">36%<sup>✓</sup></span>. <span class="proveml-inference proveml-verified">This exceeds the 30% net-margin threshold<sup>✓</sup></span></p>
+                <p class="panel-note">The sentence is accepted because the registered predicate holds for the bound value.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="example-card">
+          <div class="example-meta">Unchecked prose</div>
+          <div class="example-grid">
+            <div>
+              <h3>Source</h3>
+              <pre><code>@[company:AAPL]{Apple Inc.} reported
+%[revenue]{391.0 USD bn}.
+This performance was extremely safe.</code></pre>
+            </div>
+            <div>
+              <h3>Interpretation</h3>
+              <div class="rendered-panel boundary-panel">
+                <div class="boundary-row ok">Verified boundary: entity and direct facts are machine-checkable.</div>
+                <div class="boundary-row warn">Outside boundary: “extremely safe” remains plain prose with no verification status.</div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section-tinted">
+      <div class="wrap quickstart-grid">
+        <div>
+          <h2>Quick start</h2>
+          <pre><code>npm install proveml</code></pre>
+          <pre><code>npx proveml example</code></pre>
+          <pre><code>npx proveml strip --input report.md > plain.md</code></pre>
+          <pre><code>npx proveml doctor --facts facts.json</code></pre>
+          <pre><code>import { verifyProveml } from 'proveml/verify';
+
+const factStore = {
+  'company:aapl.name': 'Apple Inc.',
+  'company:aapl.revenue': 416161000000,
+  'company:aapl.revenue._unit': 'USD',
+  'company:aapl.netIncome': 112010000000,
+  'company:aapl.netIncome._unit': 'USD',
+};
+
+const result = verifyProveml(
+  '@[company:aapl]{Apple Inc.} reported revenue of %[revenue]{416161000000 USD} with net income of %[netIncome]{112010000000 USD}.',
+  factStore
+);
+
+console.log(result.verified, result.total);</code></pre>
+          <p class="panel-note">Add <code>markdown-it</code> only if you want the plugin integration path.</p>
+          <p class="panel-note">For plain browser or app embedding without <code>markdown-it</code>, use <code>proveml/render</code>. It emits stable semantic class names and exports a small class-name map; <code>proveml/style.css</code> is only the reference theme.</p>
+          <p class="panel-note"><code>verifyProveml</code>, <code>renderProveml</code>, and the plugin <code>factStore</code> option also accept adapters with <code>resolve(path)</code> when you want source-authentication metadata in addition to plain fact matching.</p>
+        </div>
+        <div class="api-box">
+          <h3>Package surface</h3>
+          <dl class="api-list">
+            <dt><code>npx proveml</code></dt>
+            <dd>Tiny CLI for strip, doctor, verify, render, and copyable example output</dd>
+            <dt><code>proveml</code></dt>
+            <dd><code>markdown-it</code> plugin for rendering and verification metadata</dd>
+            <dt><code>proveml/render</code></dt>
+            <dd>Lightweight HTML renderer for ordinary DOM embedding, with optional hover behavior and stable class names</dd>
+            <dt><code>proveml/verify</code></dt>
+            <dd>Standalone verification plus syntax stripping for CI, pipelines, correction loops, and clean persisted text</dd>
+            <dt><code>proveml/trust-adapter</code></dt>
+            <dd>Helpers for wrapping plain fact stores or custom authenticated backends behind the same <code>resolve(path)</code> contract</dd>
+            <dt><code>proveml/thresholds</code></dt>
+            <dd>Threshold registry and predicate evaluation</dd>
+            <dt><code>proveml/style.css</code></dt>
+            <dd>Reference rendering styles for verified spans</dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap repo-grid">
+        <div>
+          <h2>What ships in this repo</h2>
+          <ul class="plain-list spaced">
+            <li><strong>JavaScript reference implementation</strong> for parsing, rendering, and verification</li>
+            <li><strong>Self-contained test suites</strong> for plugin behavior, grammar conformance, and error detection</li>
+            <li><strong>Examples</strong> that show how ProveML can sit inside larger AI workflows</li>
+            <li><strong>Agent-oriented docs</strong> for discovery and correct usage in developer tooling</li>
+          </ul>
+        </div>
+        <div class="status-card">
+          <div class="status-label">Current repo direction</div>
+          <p>ProveML is intended as a clear, usable package-first reference implementation: small enough to inspect, light enough to embed, and permissive enough for other teams to build on.</p>
+          <p class="panel-note">The practical adoption target is simple: npm package for the runtime, optional skill for agent ergonomics, optional CSS for quick default rendering.</p>
+          <a href="https://github.com/ShaneDeconinck/proveml/blob/main/README.md" class="inline-link">Read the README</a>
+          <p class="panel-note">The companion research repository now holds the paper, benchmarks, experiment outputs, and citation-audit workflow so this repo can stay focused on the runtime and docs.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="page-footer">
+    <div class="wrap footer-row">
+      <p>ProveML is a Markdown-native verification layer for AI-generated claims against structured data.</p>
+      <div class="footer-links">
+        <a href="https://github.com/ShaneDeconinck/proveml">GitHub</a>
+        <a href="./agent-reference.md">Agent reference</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

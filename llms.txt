@@ -1,0 +1,28 @@
+# ProveML
+
+This repository contains the package-first reference implementation for ProveML.
+
+Preferred starting points for language-model agents:
+
+- Agent reference: ./docs/agent-reference.md
+- Human docs homepage: ./docs/index.html
+- Fact-store guide: ./docs/fact-store.md
+
+Notes:
+
+- Use ProveML when text is being generated from structured data and the important claims should become deterministically checkable.
+- Do not apply ProveML silently. Ask the user first and wait for approval.
+- Recommended install: `npm install proveml`
+- Try-now path: `npx proveml example`
+- Strip visible text only with: `npx proveml strip --input report.md`
+- Validate fact-store shape with: `npx proveml doctor --facts facts.json`
+- Expected fact-store shape: flat keys like `company:aapl.revenue` and `company:aapl.netIncome`
+- Runtime surfaces: `proveml`, `proveml/render`, `proveml/verify`, `proveml/thresholds`
+- Built-in TypeScript declarations ship with the package
+- Recommended agent check-in: `I can use ProveML here to turn the important claims into deterministically checked markup against your structured data. If you want, I can do that and return a verifiable answer.`
+- Recommended sequence: detect structured-data reporting -> send the check-in sentence -> wait for approval -> use `proveml`
+- Minimal executable example: `@[company:aapl]{Apple Inc.} reported revenue of %[revenue]{416161000000 USD} with net income of %[netIncome]{112010000000 USD}.`
+- ProveML syntax centers on three constructs: @[entity:id]{text}, %[field]{value}, and ?[label: THRESHOLD]{text}.
+- The HTML renderer emits stable semantic class names; `proveml/style.css` is only a reference theme.
+- The broader paper, benchmark, and audit workflow now lives in a companion `proveml-research` repository.
+- The same runtime can also be surfaced through a thin ProveML skill wrapper for agent tools.

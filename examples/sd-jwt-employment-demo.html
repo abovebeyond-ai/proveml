@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProveML + SD-JWT Employment Demo</title>
+  <style>
+    
+:where(.proveml-root) {
+    --proveml-entity-color: #0d9488;
+    --proveml-inference-color: #7c3aed;
+    --proveml-danger-color: #dc2626;
+    --proveml-warning-color: #d97706;
+    --proveml-proof-color: #6b7280;
+    --proveml-entity-hover-bg: rgba(13, 148, 136, 0.06);
+    --proveml-fact-hover-bg: rgba(13, 148, 136, 0.08);
+    --proveml-inference-hover-bg: rgba(124, 58, 237, 0.06);
+    --proveml-highlight-bg: rgba(13, 148, 136, 0.08);
+    --proveml-highlight-outline: rgba(13, 148, 136, 0.2);
+    --proveml-paragraph-gap: 0.75rem;
+}
+.proveml-paragraph {
+    margin: 0;
+}
+.proveml-paragraph + .proveml-paragraph {
+    margin-top: var(--proveml-paragraph-gap);
+}
+.proveml-entity {
+    border-bottom: 1.5px solid var(--entity-color, var(--proveml-entity-color));
+    padding-bottom: 1px;
+    cursor: help;
+    transition: background-color 0.15s ease;
+}
+.proveml-entity:hover {
+    background-color: var(--proveml-entity-hover-bg);
+}
+.proveml-entity.proveml-name-mismatch {
+    border-bottom-style: wavy;
+    border-bottom-color: var(--proveml-danger-color);
+}
+.proveml-entity.proveml-unverifiable {
+    border-bottom-style: dashed;
+    border-bottom-color: var(--proveml-warning-color);
+}
+.proveml-fact {
+    font-weight: 600;
+    cursor: help;
+    transition: background-color 0.15s ease;
+}
+.proveml-fact.proveml-verified {
+    border-bottom: 1.5px dotted var(--entity-color, var(--proveml-entity-color));
+}
+.proveml-fact.proveml-verified:hover {
+    background-color: var(--proveml-fact-hover-bg);
+}
+.proveml-fact.proveml-mismatch {
+    border-bottom: 1.5px dotted var(--proveml-danger-color);
+    color: var(--proveml-danger-color);
+    text-decoration: line-through;
+    text-decoration-color: rgba(220, 38, 38, 0.3);
+}
+.proveml-fact.proveml-unverifiable,
+.proveml-fact.proveml-no-context {
+    border-bottom: 1.5px dotted var(--proveml-warning-color);
+    color: var(--proveml-warning-color);
+}
+.proveml-inference {
+    cursor: help;
+    transition: background-color 0.15s ease;
+}
+.proveml-inference.proveml-verified {
+    border-bottom: 1.5px dashed var(--proveml-inference-color);
+}
+.proveml-inference.proveml-verified:hover {
+    background-color: var(--proveml-inference-hover-bg);
+}
+.proveml-inference.proveml-failed {
+    border-bottom: 1.5px dashed var(--proveml-danger-color);
+    color: var(--proveml-danger-color);
+}
+.proveml-proof {
+    margin-left: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.62em;
+    color: var(--proveml-proof-color);
+    white-space: nowrap;
+}
+.proveml-entity-highlight {
+    background-color: var(--proveml-highlight-bg) !important;
+    outline: 1px solid var(--proveml-highlight-outline);
+    border-radius: 2px;
+    transition: background-color 0.1s ease;
+}
+
+
+    /* --- Trust icon treatment --- */
+    .proveml-trust-verified::after {
+      content: '\1F512';
+      font-size: 0.7em;
+      margin-left: 2px;
+      vertical-align: super;
+    }
+    .proveml-trust-expired::after {
+      content: '\26A0';
+      font-size: 0.7em;
+      margin-left: 2px;
+      vertical-align: super;
+    }
+    .proveml-trust-revoked::after {
+      content: '\1F6AB';
+      font-size: 0.7em;
+      margin-left: 2px;
+      vertical-align: super;
+    }
+    .proveml-trust-error::after {
+      content: '\2716';
+      font-size: 0.7em;
+      margin-left: 2px;
+      vertical-align: super;
+    }
+
+    /* --- Page layout --- */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #1f2937;
+      background: #f9fafb;
+      padding: 2rem;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+    .page-sub { color: #6b7280; margin-bottom: 2rem; font-size: 0.95rem; }
+    h3 { font-size: 1.1rem; margin-bottom: 0.15rem; display: flex; align-items: center; gap: 8px; }
+    .scenario { margin-bottom: 2.5rem; }
+    .scenario-sub { color: #6b7280; font-size: 0.85rem; margin-bottom: 0.75rem; }
+
+    .side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 640px) { .side-by-side { grid-template-columns: 1fr; } }
+
+    .panel {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .panel-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #9ca3af;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #f3f4f6;
+      background: #fafafa;
+    }
+    .panel-body { padding: 0.75rem; font-size: 0.92rem; }
+    .plain-text { color: #6b7280; }
+
+    .badge {
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .badge-ok { background: #d1fae5; color: #065f46; }
+    .badge-warn { background: #fef3c7; color: #92400e; }
+
+    .legend {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-bottom: 2rem;
+      padding: 0.75rem 1rem;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-swatch {
+      display: inline-block;
+      width: 18px;
+      border-bottom: 2px dotted;
+      margin-right: 2px;
+    }
+    .legend-swatch.entity { border-bottom-style: solid; border-color: #0d9488; }
+    .legend-swatch.fact { border-color: #0d9488; }
+    .legend-swatch.mismatch { border-color: #dc2626; }
+
+    .adapter-box {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 2rem;
+      font-size: 0.82rem;
+      color: #4b5563;
+    }
+    .adapter-box code {
+      background: #f3f4f6;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>ProveML + SD-JWT Employment Credential</h1>
+  <p class="page-sub">Selective disclosure meets claim-level verification. The AI writes prose; ProveML checks each claim against the disclosed credential.</p>
+
+  <div class="legend">
+    <span class="legend-item"><span class="legend-swatch entity"></span> Entity (verified name)</span>
+    <span class="legend-item"><span class="legend-swatch fact"></span> Fact (matches credential)</span>
+    <span class="legend-item"><span class="legend-swatch mismatch"></span> Mismatch (wrong value)</span>
+    <span class="legend-item">🔒 Source authenticated</span>
+    <span class="legend-item">⚠ Credential expired</span>
+  </div>
+
+  <div class="adapter-box">
+    <strong>Trust adapter:</strong> <code>sd-jwt</code> &mdash;
+    Each disclosed claim resolves via <code>adapter.resolve(path)</code> and returns
+    <code>{ value, trust: { status, backend: 'sd-jwt', issuer, proofRef } }</code>.
+    ProveML checks match and trust independently.
+  </div>
+
+  
+    <div class="scenario" id="verified">
+      <h3>Verified credential <span class="badge badge-ok">7/7 verified</span></h3>
+      <p class="scenario-sub">All claims match the disclosed SD-JWT. Credential is valid and not expired.</p>
+      <div class="side-by-side">
+        <div class="panel">
+          <div class="panel-label">Plain text</div>
+          <div class="panel-body plain-text">is employed at Acme NV as a Staff Engineer in the Platform department. She joined on 2023-03-15 and is based in Ghent (employee EMP-2847).</div>
+        </div>
+        <div class="panel">
+          <div class="panel-label">ProveML + SD-JWT trust</div>
+          <div class="panel-body proveml-output"><div class="proveml-root"><p class="proveml-paragraph"><span class="proveml-entity proveml-verified proveml-trust-verified" data-entity="person:alice" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.name">Alice De Smet</span>is employed at <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.employer" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.employer = Acme NV">Acme NV</span> as a <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.role" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.role = Staff Engineer">Staff Engineer</span> in the <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.department" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.department = Platform">Platform</span> department. She joined on <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.startDate" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.startDate = 2023-03-15">2023-03-15</span> and is based in <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.location" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.location = Ghent">Ghent</span> (employee <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.employeeId" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.employeeId = EMP-2847">EMP-2847</span>).</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario" id="verified-audit">
+      <h3>Audit mode <span class="badge badge-ok">7/7 verified</span></h3>
+      <p class="scenario-sub">Same verified credential, with proof paths and trust metadata visible inline.</p>
+      <div class="side-by-side">
+        <div class="panel">
+          <div class="panel-label">Plain text</div>
+          <div class="panel-body plain-text">is employed at Acme NV as a Staff Engineer in the Platform department. She joined on 2023-03-15 and is based in Ghent (employee EMP-2847).</div>
+        </div>
+        <div class="panel">
+          <div class="panel-label">ProveML + SD-JWT trust</div>
+          <div class="panel-body proveml-output"><div class="proveml-root"><p class="proveml-paragraph"><span class="proveml-entity proveml-verified proveml-trust-verified" data-entity="person:alice" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.name">Alice De Smet</span><span class="proveml-proof">[person:alice.name]</span><span class="proveml-proof">[trust: verified · via sd-jwt · issuer Acme NV — HR Department]</span>is employed at <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.employer" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.employer = Acme NV">Acme NV</span><span class="proveml-proof">[person:alice.employer]</span><span class="proveml-proof">[trust: verified · via sd-jwt · issuer Acme NV — HR Department]</span> as a <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.role" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.role = Staff Engineer">Staff Engineer</span><span class="proveml-proof">[person:alice.role]</span><span class="proveml-proof">[trust: verified · via sd-jwt · issuer Acme NV — HR Department]</span> in the <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.department" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.department = Platform">Platform</span><span class="proveml-proof">[person:alice.department]</span><span class="proveml-proof">[trust: verified · via sd-jwt · issuer Acme NV — HR Department]</span> department. She joined on <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.startDate" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.startDate = 2023-03-15">2023-03-15</span><span class="proveml-proof">[person:alice.startDate]</span><span class="proveml-proof">[trust: verified · via sd-jwt · issuer Acme NV — HR Department]</span> and is based in <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.location" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.location = Ghent">Ghent</span><span class="proveml-proof">[person:alice.location]</span><span class="proveml-proof">[trust: verified · via sd-jwt · issuer Acme NV — HR Department]</span> (employee <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.employeeId" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.employeeId = EMP-2847">EMP-2847</span><span class="proveml-proof">[person:alice.employeeId]</span><span class="proveml-proof">[trust: verified · via sd-jwt · issuer Acme NV — HR Department]</span>).</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario" id="expired">
+      <h3>Expired credential <span class="badge badge-ok">6/6 verified</span></h3>
+      <p class="scenario-sub">Claims match, but the SD-JWT has expired. Match is green; trust shows expired.</p>
+      <div class="side-by-side">
+        <div class="panel">
+          <div class="panel-label">Plain text</div>
+          <div class="panel-body plain-text">was employed at OldCorp BV as a Junior Developer in the Backend department, starting 2021-06-01 (employee OC-1102).</div>
+        </div>
+        <div class="panel">
+          <div class="panel-label">ProveML + SD-JWT trust</div>
+          <div class="panel-body proveml-output"><div class="proveml-root"><p class="proveml-paragraph"><span class="proveml-entity proveml-verified proveml-trust-expired" data-entity="person:bob" data-trust-status="expired" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:54bcfa5b" data-trust-issuer="OldCorp — HR" data-trust-checked-at="2026-07-30T18:32:55.556Z" title="person:bob.name">Bob Janssens</span>was employed at <span class="proveml-fact proveml-verified proveml-trust-expired" data-entity="person:bob" data-path="person:bob.employer" data-trust-status="expired" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:54bcfa5b" data-trust-issuer="OldCorp — HR" data-trust-checked-at="2026-07-30T18:32:55.556Z" title="person:bob.employer = OldCorp BV">OldCorp BV</span> as a <span class="proveml-fact proveml-verified proveml-trust-expired" data-entity="person:bob" data-path="person:bob.role" data-trust-status="expired" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:54bcfa5b" data-trust-issuer="OldCorp — HR" data-trust-checked-at="2026-07-30T18:32:55.556Z" title="person:bob.role = Junior Developer">Junior Developer</span> in the <span class="proveml-fact proveml-verified proveml-trust-expired" data-entity="person:bob" data-path="person:bob.department" data-trust-status="expired" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:54bcfa5b" data-trust-issuer="OldCorp — HR" data-trust-checked-at="2026-07-30T18:32:55.556Z" title="person:bob.department = Backend">Backend</span> department, starting <span class="proveml-fact proveml-verified proveml-trust-expired" data-entity="person:bob" data-path="person:bob.startDate" data-trust-status="expired" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:54bcfa5b" data-trust-issuer="OldCorp — HR" data-trust-checked-at="2026-07-30T18:32:55.556Z" title="person:bob.startDate = 2021-06-01">2021-06-01</span> (employee <span class="proveml-fact proveml-verified proveml-trust-expired" data-entity="person:bob" data-path="person:bob.employeeId" data-trust-status="expired" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:54bcfa5b" data-trust-issuer="OldCorp — HR" data-trust-checked-at="2026-07-30T18:32:55.556Z" title="person:bob.employeeId = OC-1102">OC-1102</span>).</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario" id="mismatch">
+      <h3>Value mismatch <span class="badge badge-warn">3/4 verified</span></h3>
+      <p class="scenario-sub">The markup says "Senior Engineer" but the credential says "Staff Engineer". Trust is verified, but the claim does not match.</p>
+      <div class="side-by-side">
+        <div class="panel">
+          <div class="panel-label">Plain text</div>
+          <div class="panel-body plain-text">is employed at Acme NV as a Senior Engineer in the Platform department.</div>
+        </div>
+        <div class="panel">
+          <div class="panel-label">ProveML + SD-JWT trust</div>
+          <div class="panel-body proveml-output"><div class="proveml-root"><p class="proveml-paragraph"><span class="proveml-entity proveml-verified proveml-trust-verified" data-entity="person:alice" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.name">Alice De Smet</span>is employed at <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.employer" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.employer = Acme NV">Acme NV</span> as a <span class="proveml-fact proveml-mismatch proveml-trust-verified" data-entity="person:alice" data-path="person:alice.role" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.role: expected Staff Engineer">Senior Engineer</span> in the <span class="proveml-fact proveml-verified proveml-trust-verified" data-entity="person:alice" data-path="person:alice.department" data-trust-status="verified" data-trust-backend="sd-jwt" data-trust-proof-ref="sha256:58317958" data-trust-issuer="Acme NV — HR Department" data-trust-checked-at="2026-07-30T18:32:55.554Z" title="person:alice.department = Platform">Platform</span> department.</p></div></div>
+        </div>
+      </div>
+    </div>
+
+  <script>
+    // Attach entity-highlight hover behavior
+    document.querySelectorAll('.proveml-root').forEach(root => {
+      root.addEventListener('mouseover', (e) => {
+        const el = e.target.closest('[data-entity]');
+        if (!el) return;
+        const path = el.dataset.entity;
+        root.querySelectorAll('.proveml-entity-highlight').forEach(x => x.classList.remove('proveml-entity-highlight'));
+        root.querySelectorAll('[data-entity="' + path + '"]').forEach(x => x.classList.add('proveml-entity-highlight'));
+      });
+      root.addEventListener('mouseout', (e) => {
+        if (e.target.closest('[data-entity]')) {
+          root.querySelectorAll('.proveml-entity-highlight').forEach(x => x.classList.remove('proveml-entity-highlight'));
+        }
+      });
+    });
+  </script>
+</body>
+</html>

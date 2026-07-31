@@ -1,0 +1,110 @@
+{
+  "name": "proveml",
+  "version": "1.1.0",
+  "description": "Deterministic claim-level verification for AI-generated text with Markdown-native inline markup.",
+  "type": "module",
+  "types": "src/index.d.ts",
+  "main": "src/plugin.js",
+  "bin": {
+    "proveml": "./src/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/plugin.js"
+    },
+    "./verify": {
+      "types": "./src/verify.d.ts",
+      "default": "./src/verify.js"
+    },
+    "./thresholds": {
+      "types": "./src/thresholds.d.ts",
+      "default": "./src/thresholds.js"
+    },
+    "./render": {
+      "types": "./src/render-html.d.ts",
+      "default": "./src/render-html.js"
+    },
+    "./render-html": {
+      "types": "./src/render-html.d.ts",
+      "default": "./src/render-html.js"
+    },
+    "./renderer": {
+      "types": "./src/renderer.d.ts",
+      "default": "./src/renderer.js"
+    },
+    "./trust-adapter": {
+      "types": "./src/trust-adapter.d.ts",
+      "default": "./src/trust-adapter.js"
+    },
+    "./paper-examples": {
+      "types": "./src/paper-examples.d.ts",
+      "default": "./src/paper-examples.js"
+    },
+    "./style.css": "./src/style.css",
+    "./annotate": {
+      "types": "./src/annotate.d.ts",
+      "default": "./src/annotate.js"
+    }
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "llms.txt",
+    "src/annotate.d.ts",
+    "src/annotate.js",
+    "src/cli.js",
+    "src/index.d.ts",
+    "src/paper-examples.d.ts",
+    "src/paper-examples.js",
+    "src/plugin.js",
+    "src/render-html.d.ts",
+    "src/render-html.js",
+    "src/renderer.d.ts",
+    "src/renderer.js",
+    "src/style.css",
+    "src/thresholds.d.ts",
+    "src/thresholds.js",
+    "src/trust-adapter.d.ts",
+    "src/trust-adapter.js",
+    "src/types.d.ts",
+    "src/verify.d.ts",
+    "src/verify.js"
+  ],
+  "scripts": {
+    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js",
+    "test:plugin": "node src/proveml.test.js",
+    "test:grammar": "node src/grammar.test.js",
+    "test:cli": "node src/cli.test.js",
+    "test:detection": "node src/detection.test.js",
+    "test:examples": "node src/paper-examples.test.js"
+  },
+  "keywords": [
+    "proveml",
+    "verification",
+    "ai",
+    "markup",
+    "provenance",
+    "markdown-it",
+    "fact-checking"
+  ],
+  "author": "Shane Deconinck <hello@shanedeconinck.be>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShaneDeconinck/proveml.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ShaneDeconinck/proveml/issues"
+  },
+  "homepage": "https://abovebeyond.ai/proveml/",
+  "peerDependencies": {
+    "markdown-it": ">=14.0.0"
+  },
+  "devDependencies": {
+    "markdown-it": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

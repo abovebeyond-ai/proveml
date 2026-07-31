@@ -1,0 +1,109 @@
+/* ProveML — Minimal verification styling */
+
+:where(.proveml-root) {
+    --proveml-entity-color: #0d9488;
+    --proveml-inference-color: #7c3aed;
+    --proveml-danger-color: #dc2626;
+    --proveml-warning-color: #d97706;
+    --proveml-proof-color: #6b7280;
+    --proveml-entity-hover-bg: rgba(13, 148, 136, 0.06);
+    --proveml-fact-hover-bg: rgba(13, 148, 136, 0.08);
+    --proveml-inference-hover-bg: rgba(124, 58, 237, 0.06);
+    --proveml-highlight-bg: rgba(13, 148, 136, 0.08);
+    --proveml-highlight-outline: rgba(13, 148, 136, 0.2);
+    --proveml-paragraph-gap: 0.75rem;
+}
+
+.proveml-paragraph {
+    margin: 0;
+}
+
+.proveml-paragraph + .proveml-paragraph {
+    margin-top: var(--proveml-paragraph-gap);
+}
+
+/* Entity references */
+.proveml-entity {
+    border-bottom: 1.5px solid var(--entity-color, var(--proveml-entity-color));
+    padding-bottom: 1px;
+    cursor: help;
+    transition: background-color 0.15s ease;
+}
+.proveml-entity:hover {
+    background-color: var(--proveml-entity-hover-bg);
+}
+.proveml-entity.proveml-name-mismatch {
+    border-bottom-style: wavy;
+    border-bottom-color: var(--proveml-danger-color);
+}
+.proveml-entity.proveml-unverifiable {
+    border-bottom-style: dashed;
+    border-bottom-color: var(--proveml-warning-color);
+}
+
+/* Fact references — status colors */
+.proveml-fact {
+    font-weight: 600;
+    cursor: help;
+    transition: background-color 0.15s ease;
+}
+.proveml-fact.proveml-verified {
+    border-bottom: 1.5px dotted var(--entity-color, var(--proveml-entity-color));
+}
+.proveml-fact.proveml-verified:hover {
+    background-color: var(--proveml-fact-hover-bg);
+}
+.proveml-fact.proveml-mismatch {
+    border-bottom: 1.5px dotted var(--proveml-danger-color);
+    color: var(--proveml-danger-color);
+    text-decoration: line-through;
+    text-decoration-color: rgba(220, 38, 38, 0.3);
+}
+.proveml-fact.proveml-unverifiable,
+.proveml-fact.proveml-no-context {
+    border-bottom: 1.5px dotted var(--proveml-warning-color);
+    color: var(--proveml-warning-color);
+}
+
+/* Inference references */
+.proveml-inference {
+    cursor: help;
+    transition: background-color 0.15s ease;
+}
+.proveml-inference.proveml-verified {
+    border-bottom: 1.5px dashed var(--proveml-inference-color);
+}
+.proveml-inference.proveml-verified:hover {
+    background-color: var(--proveml-inference-hover-bg);
+}
+.proveml-inference.proveml-failed {
+    border-bottom: 1.5px dashed var(--proveml-danger-color);
+    color: var(--proveml-danger-color);
+}
+
+.proveml-proof {
+    margin-left: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.62em;
+    color: var(--proveml-proof-color);
+    white-space: nowrap;
+}
+
+/* Trust summary — just a line of text, no decoration */
+.proveml-trust-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+/* Entity hover highlight — all claims for same entity */
+.proveml-entity-highlight {
+    background-color: var(--proveml-highlight-bg) !important;
+    outline: 1px solid var(--proveml-highlight-outline);
+    border-radius: 2px;
+    transition: background-color 0.1s ease;
+}
