@@ -133,5 +133,39 @@ assert('paper AND chain', acceptsSyntax(
     '@[student:100]{Ylan} ?[low: IS_LOW_PASS]{low} ?[absent: IS_HIGH_ABSENCE]{absent}. ?[risk: @low AND @absent]{at risk}.'
  ,4));
 
+// ── Custom threshold registry (options.thresholds) ──────────────────────────
+// A domain brings its own vocabulary. With a custom registry the built-in
+// example thresholds are no longer part of the allowed language: a verifier
+// that suggests IS_ELEVATED_GLUCOSE for a website report has already lost.
+console.log('\n=== Custom threshold registry ===');
+
+const siteFacts = {
+    'site:hoet.name': 'hoet.be',
+    'site:hoet.tlsDays': 66,
+};
+const siteRegistry = {
+    TLS_HEALTHY: { field: 'tlsDays', op: '>=', value: 21, label: 'certificate comfortably valid', source: 'site-tool' },
+};
+
+{
+    const v = verifyProveml('@[site:hoet]{hoet.be} ?[tls: TLS_HEALTHY]{certificate healthy}', siteFacts, { thresholds: siteRegistry });
+    assert('custom threshold verifies', v.verified === v.total && v.total === 2, JSON.stringify(v.errors));
+}
+{
+    // Built-in vocabulary is OUT when a custom registry is given.
+    const v = verifyProveml('@[site:hoet]{hoet.be} ?[x: IS_STRONG]{strong}', siteFacts, { thresholds: siteRegistry });
+    assert('built-in name rejected under custom registry', v.errors.some(e => e.includes('Unknown threshold: IS_STRONG')), JSON.stringify(v.errors));
+}
+{
+    // Without the option nothing changes: the built-in registry still carries.
+    const v = verifyProveml('@[student:100]{Ylan} ?[low: IS_LOW_PASS]{critically low}', fs);
+    assert('default registry unchanged without option', v.verified === v.total && v.total === 2, JSON.stringify(v.errors));
+}
+{
+    // Composition works against the custom registry too.
+    const v = verifyProveml('@[site:hoet]{hoet.be} ?[ok: TLS_HEALTHY AND NOT @missing]{fine}', siteFacts, { thresholds: siteRegistry });
+    assert('unknown label still unresolvable with custom registry', v.errors.length > 0, JSON.stringify(v.errors));
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

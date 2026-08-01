@@ -35,10 +35,18 @@ export type FactSource = FactStore | TrustAdapter;
 
 export interface VerifyProvemlOptions {
   snapshot?: string;
+  /**
+   * The threshold registry for this verification. When given it REPLACES the
+   * built-in example registry: a domain defines its own vocabulary, and names
+   * outside it are unknown. Spread the built-in in to merge instead.
+   */
+  thresholds?: Record<string, ThresholdDefinition>;
 }
 
 export interface ProveMLOptions {
   factStore?: FactSource;
+  /** Same contract as VerifyProvemlOptions.thresholds, for the renderer. */
+  thresholds?: Record<string, ThresholdDefinition>;
 }
 
 export interface EntityVerificationDetail extends TrustMetadataFields {

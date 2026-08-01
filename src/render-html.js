@@ -76,7 +76,11 @@ export function renderProveml(markup, factStore, options = {}) {
     const verification = verifyProveml(
         markup,
         factStore,
-        options.snapshot ? { snapshot: options.snapshot } : undefined
+        // Forward what verify understands; the renderer adds nothing of its own.
+        (options.snapshot || options.thresholds)
+            ? { ...(options.snapshot && { snapshot: options.snapshot }),
+                ...(options.thresholds && { thresholds: options.thresholds }) }
+            : undefined
     );
     const tokens = tokenizeProveml(markup);
 
@@ -167,7 +171,9 @@ export function renderProveml(markup, factStore, options = {}) {
 
         if (token.type === 'inference') {
             const detail = inferenceDetails[inferenceIndex++] || {};
-            const statusClass = detail.status === 'verified' ? PROVEML_CLASSNAMES.verified : PROVEML_CLASSNAMES.failed;
+            const statusClass = detail.status === 'verified' ? PROVEML_CLASSNAMES.verified
+                : detail.status === 'unverifiable' ? PROVEML_CLASSNAMES.unverifiable
+                : PROVEML_CLASSNAMES.failed;
             const condition = token.condition;
 
             html += `<span class="${PROVEML_CLASSNAMES.inference} ${statusClass}${trustClassName(detail.trustStatus)}" data-condition="${escapeHtml(condition)}"${trustDataAttrs(detail)} title="${escapeHtml(`?[${token.label}: ${condition}]`)}">${escapeHtml(token.text)}</span>`;

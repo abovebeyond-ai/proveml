@@ -55,11 +55,16 @@ function mergeTrustFields(results) {
  * Verify all ProveML constructs in a markdown string.
  * @param {string} markdown - Raw ProveML-annotated markdown
  * @param {object} factStoreOrAdapter - Flat key-value store or trust adapter
- * @param {object} [options] - Optional: { snapshot: string }
+ * @param {object} [options] - Optional: { snapshot: string, thresholds: object }
+ *   options.thresholds replaces the built-in registry for this verification:
+ *   a domain defines its own vocabulary, and the built-in example thresholds
+ *   (education, finance, health) stop being part of the allowed language.
+ *   Callers that want both can spread: { ...thresholds, ...own }.
  * @returns {{ total, verified, errors: string[], details: object[], snapshot?: string }}
  */
 export function verifyProveml(markdown, factStoreOrAdapter, options) {
     const adapter = toTrustAdapter(factStoreOrAdapter);
+    const registry = options?.thresholds || thresholds;
     const results = { total: 0, verified: 0, errors: [], details: [] };
     if (options?.snapshot) results.snapshot = options.snapshot;
     const inferLabels = {};
@@ -109,19 +114,22 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
             }
 
             if (tok.scoped) {
-                // Push current onto stack, enter scope
-                if (currentEntity) entityStack.push(currentEntity);
+                // Push current onto stack (null included: "no context" is also
+                // a context, and it must be restored when the scope closes —
+                // otherwise an entity from inside a top-level scope leaks out
+                // of it and later facts bind to the wrong entity)
+                entityStack.push(currentEntity);
                 currentEntity = path;
             } else {
                 // Simple form: linear carry-forward
                 currentEntity = path;
             }
         } else if (tok.type === 'entity_close') {
-            // Scope closes: restore outer context if nested, else keep for carry-forward
+            // Scope closes: restore whatever was in force when it opened.
+            // An unmatched close (malformed input) leaves the context alone.
             if (entityStack.length > 0) {
                 currentEntity = entityStack.pop();
             }
-            // else: currentEntity stays (linear carry-forward)
         } else if (tok.type === 'fact') {
             results.total++;
             if (!currentEntity) {
@@ -162,7 +170,7 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
             }
         } else if (tok.type === 'inference') {
             results.total++;
-            const result = evaluateCondition(tok.condition, currentEntity, adapter, inferLabels);
+            const result = evaluateCondition(tok.condition, currentEntity, adapter, inferLabels, registry);
             inferLabels[tok.label] = result;
             if (result.verified) {
                 results.verified++;
@@ -179,9 +187,14 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
                 results.details.push({
                     type: 'inference',
                     label: tok.label,
-                    status: 'failed',
+                    // unknown = could not be resolved (unregistered threshold,
+                    // missing operand); distinct from a condition that resolved
+                    // to false. Renderers show unknown as unverifiable, false
+                    // as mismatch.
+                    status: result.unknown ? 'unverifiable' : 'failed',
                     pos: tok.pos, end: tok.end,
                     error: result.error,
+                    ...(result.unknown ? { unknown: true } : {}),
                     ...mergeTrustFields([result])
                 });
             }
@@ -333,14 +346,14 @@ export function tokenizeProveml(src, baseOffset = 0) {
  * as false let `NOT @nonexistent` come back verified, which would report a claim
  * as proven on the strength of a threshold nobody defined.
  */
-function evaluateCondition(condition, entityPath, adapter, labels) {
+function evaluateCondition(condition, entityPath, adapter, labels, registry = thresholds) {
     condition = condition.trim();
 
     // OR (lower precedence — checked first). True beats unknown; otherwise an
     // unresolvable operand makes the whole disjunction unresolvable.
     if (condition.includes(' OR ')) {
         const parts = condition.split(' OR ').map(p => p.trim());
-        const results = parts.map(p => evaluateCondition(p, entityPath, adapter, labels));
+        const results = parts.map(p => evaluateCondition(p, entityPath, adapter, labels, registry));
         const unknown = results.some(r => r.unknown) && !results.some(r => r.verified);
         return {
             verified: !unknown && results.some(r => r.verified),
@@ -353,7 +366,7 @@ function evaluateCondition(condition, entityPath, adapter, labels) {
     // AND (higher precedence). False beats unknown; otherwise unknown wins.
     if (condition.includes(' AND ')) {
         const parts = condition.split(' AND ').map(p => p.trim());
-        const results = parts.map(p => evaluateCondition(p, entityPath, adapter, labels));
+        const results = parts.map(p => evaluateCondition(p, entityPath, adapter, labels, registry));
         const decidedFalse = results.some(r => !r.verified && !r.unknown);
         const unknown = !decidedFalse && results.some(r => r.unknown);
         return {
@@ -366,7 +379,7 @@ function evaluateCondition(condition, entityPath, adapter, labels) {
 
     // NOT. Negating an unresolvable condition leaves it unresolvable.
     if (condition.startsWith('NOT ')) {
-        const inner = evaluateCondition(condition.slice(4), entityPath, adapter, labels);
+        const inner = evaluateCondition(condition.slice(4), entityPath, adapter, labels, registry);
         if (inner.unknown) {
             return { verified: false, unknown: true, error: inner.error,
                 explanation: `¬(${inner.explanation || inner.error})`, ...mergeTrustFields([inner]) };
@@ -378,11 +391,23 @@ function evaluateCondition(condition, entityPath, adapter, labels) {
         };
     }
 
-    // Label reference: @label
+    // Label reference: @label. The reference is only as resolved as its
+    // target: if the referenced inference is unknown (unregistered threshold,
+    // missing operand), the reference is unknown too — otherwise `NOT @a`
+    // would verify on the strength of a threshold nobody defined, one
+    // indirection away from the case handled above.
     if (condition.startsWith('@')) {
         const refLabel = condition.slice(1);
         const ref = labels[refLabel];
         if (!ref) return { verified: false, unknown: true, error: `Label "${refLabel}" not found` };
+        if (ref.unknown) {
+            return {
+                verified: false, unknown: true,
+                error: ref.error || `Label "${refLabel}" is unresolved`,
+                explanation: `@${refLabel} = unknown`,
+                ...mergeTrustFields([ref])
+            };
+        }
         return {
             verified: ref.verified,
             explanation: `@${refLabel} = ${ref.verified}`,
@@ -394,7 +419,7 @@ function evaluateCondition(condition, entityPath, adapter, labels) {
     const thresholdMatch = condition.match(/^([A-Z_]+)(?:\(([^)]+)\))?$/);
     if (thresholdMatch) {
         const tName = thresholdMatch[1];
-        const t = thresholds[tName];
+        const t = registry[tName];
         if (!t) return { verified: false, unknown: true, error: `Unknown threshold: ${tName}` };
 
         let actualValue;
@@ -427,7 +452,7 @@ function evaluateCondition(condition, entityPath, adapter, labels) {
             }
         }
 
-        const result = evaluateThreshold(tName, actualValue);
+        const result = evaluateThreshold(tName, actualValue, registry);
         if (!result.valid) {
             return { verified: false, unknown: true, error: result.error,
                 explanation: result.error, ...getTrustFields(resolution) };

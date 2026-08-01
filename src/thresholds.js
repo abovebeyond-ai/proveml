@@ -48,8 +48,8 @@ export const thresholds = {
  *   Core:     lt, gt, lte, gte, eq, neq (and legacy <, >, <=, >=, ==, !=)
  *   Extended: between, in, is_null, diff_gt
  */
-export function evaluateThreshold(thresholdName, actualValue) {
-    const t = thresholds[thresholdName];
+export function evaluateThreshold(thresholdName, actualValue, registry = thresholds) {
+    const t = registry[thresholdName];
     if (!t) return { valid: false, error: `Unknown threshold: ${thresholdName}` };
 
     // is_null: check before numeric conversion
@@ -65,6 +65,16 @@ export function evaluateThreshold(thresholdName, actualValue) {
         const values = t.values || [];
         const result = values.includes(String(actualValue));
         return { valid: true, result, threshold: t, actualValue, explanation: `${actualValue} in {${values.join(',')}} → ${result}`, label: t.label, source: t.source };
+    }
+
+    // eq/neq compare canonical string forms and therefore also apply to
+    // categorical fields (status eq "active"), so they must not go through the
+    // numeric gate below — that gate would reject every non-numeric value with
+    // a type error before the comparison ever ran.
+    if (t.op === '==' || t.op === 'eq' || t.op === '!=' || t.op === 'neq') {
+        const equal = String(actualValue) === String(t.value);
+        const result = (t.op === '==' || t.op === 'eq') ? equal : !equal;
+        return { valid: true, result, threshold: t, actualValue, explanation: `${JSON.stringify(actualValue)} ${t.op} ${JSON.stringify(t.value)} → ${result}`, label: t.label, source: t.source };
     }
 
     // Number('') is 0 and Number(true) is 1, so a bare Number() would compare an
@@ -93,15 +103,14 @@ export function evaluateThreshold(thresholdName, actualValue) {
         return { valid: true, result, threshold: t, actualValue: v, explanation: `diff ${v} > ${t.value} → ${result}`, label: t.label, source: t.source };
     }
 
-    // Core scalar operators (support both symbolic and named forms)
+    // Core ordering operators (support both symbolic and named forms);
+    // eq/neq were handled above, before the numeric gate.
     let result;
     switch (t.op) {
         case '>':   case 'gt':  result = v > t.value; break;
         case '<':   case 'lt':  result = v < t.value; break;
         case '>=':  case 'gte': result = v >= t.value; break;
         case '<=':  case 'lte': result = v <= t.value; break;
-        case '==':  case 'eq':  result = String(actualValue) === String(t.value); break;
-        case '!=':  case 'neq': result = String(actualValue) !== String(t.value); break;
         default: return { valid: false, error: `Unknown operator: ${t.op}` };
     }
 
@@ -119,6 +128,6 @@ export function evaluateThreshold(thresholdName, actualValue) {
 /**
  * Get all threshold names
  */
-export function getThresholdNames() {
-    return Object.keys(thresholds);
+export function getThresholdNames(registry = thresholds) {
+    return Object.keys(registry);
 }

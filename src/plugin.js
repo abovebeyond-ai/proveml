@@ -82,6 +82,9 @@ const ENTITY_COLORS = ['#6b7280'];
 
 export default function provemlPlugin(md, options = {}) {
     const adapter = toTrustAdapter(options.factStore || {});
+    // The registry for this document. Same contract as verifyProveml: given a
+    // custom registry, the built-in example vocabulary is out of the language.
+    const registry = options.thresholds || thresholds;
     // State is stored in env (per-render), not module-level
     function getEnv(state) {
         if (!state.env._proveml) {
@@ -359,7 +362,7 @@ export default function provemlPlugin(md, options = {}) {
         const env = getEnv(state);
 
         // Evaluate condition
-        const result = evaluateCondition(condition, env, adapter);
+        const result = evaluateCondition(condition, env, adapter, registry);
 
         // Store in verification
         env.verification.facts.push({
@@ -405,29 +408,38 @@ export default function provemlPlugin(md, options = {}) {
  * Evaluate an inference condition
  * Supports: THRESHOLD_NAME(path), @label, condition AND condition, condition OR condition, NOT condition
  */
-function evaluateCondition(condition, env, adapter) {
+function evaluateCondition(condition, env, adapter, registry = thresholds) {
     condition = condition.trim();
 
-    // OR (lower precedence — checked first so AND binds tighter)
+    // Three-valued, mirroring verify.js (the normative verifier): a condition
+    // that cannot be resolved is UNKNOWN, not false, and NOT propagates unknown
+    // instead of negating it — a two-valued reading here rendered
+    // `NOT UNDEFINED_THRESHOLD` as verified, the worst thing a renderer can show.
+
+    // OR (lower precedence — checked first so AND binds tighter).
+    // True beats unknown; otherwise an unresolvable operand wins.
     if (condition.includes(' OR ')) {
         const parts = condition.split(' OR ').map(p => p.trim());
-        const results = parts.map(p => evaluateCondition(p, env, adapter));
-        const anyVerified = results.some(r => r.verified);
+        const results = parts.map(p => evaluateCondition(p, env, adapter, registry));
+        const unknown = results.some(r => r.unknown) && !results.some(r => r.verified);
         return {
-            verified: anyVerified,
+            verified: !unknown && results.some(r => r.verified),
+            ...(unknown ? { unknown: true, error: results.find(r => r.unknown).error } : {}),
             explanation: results.map(r => r.explanation || r.error).join(' ∨ '),
             source: results.map(r => r.source).filter(Boolean).join(', '),
             ...mergeTrustFields(results)
         };
     }
 
-    // AND (higher precedence)
+    // AND (higher precedence). False beats unknown; otherwise unknown wins.
     if (condition.includes(' AND ')) {
         const parts = condition.split(' AND ').map(p => p.trim());
-        const results = parts.map(p => evaluateCondition(p, env, adapter));
-        const allVerified = results.every(r => r.verified);
+        const results = parts.map(p => evaluateCondition(p, env, adapter, registry));
+        const decidedFalse = results.some(r => !r.verified && !r.unknown);
+        const unknown = !decidedFalse && results.some(r => r.unknown);
         return {
-            verified: allVerified,
+            verified: !unknown && results.every(r => r.verified),
+            ...(unknown ? { unknown: true, error: results.find(r => r.unknown).error } : {}),
             explanation: results.map(r => r.explanation || r.error).join(' ∧ '),
             source: results.map(r => r.source).filter(Boolean).join(', '),
             steps: results,
@@ -435,9 +447,17 @@ function evaluateCondition(condition, env, adapter) {
         };
     }
 
-    // NOT
+    // NOT. Negating an unresolvable condition leaves it unresolvable.
     if (condition.startsWith('NOT ')) {
-        const inner = evaluateCondition(condition.slice(4), env, adapter);
+        const inner = evaluateCondition(condition.slice(4), env, adapter, registry);
+        if (inner.unknown) {
+            return {
+                verified: false, unknown: true, error: inner.error,
+                explanation: `¬(${inner.explanation || inner.error})`,
+                source: inner.source,
+                ...mergeTrustFields([inner])
+            };
+        }
         return {
             verified: !inner.verified,
             explanation: `¬(${inner.explanation})`,
@@ -446,11 +466,21 @@ function evaluateCondition(condition, env, adapter) {
         };
     }
 
-    // Label reference: @label
+    // Label reference: @label. As resolved as its target — an unknown target
+    // makes the reference unknown, so NOT @a cannot verify via an unresolved a.
     if (condition.startsWith('@')) {
         const refLabel = condition.slice(1);
         const ref = env._inferenceLabels?.[refLabel];
-        if (!ref) return { verified: false, error: `Label "${refLabel}" not found` };
+        if (!ref) return { verified: false, unknown: true, error: `Label "${refLabel}" not found` };
+        if (ref.unknown) {
+            return {
+                verified: false, unknown: true,
+                error: ref.error || `Label "${refLabel}" is unresolved`,
+                explanation: `@${refLabel} = unknown`,
+                source: ref.source,
+                ...mergeTrustFields([ref])
+            };
+        }
         return {
             verified: ref.verified,
             explanation: `@${refLabel} = ${ref.verified}`,
@@ -463,8 +493,8 @@ function evaluateCondition(condition, env, adapter) {
     const thresholdMatch = condition.match(/^([A-Z_]+)(?:\(([^)]+)\))?$/);
     if (thresholdMatch) {
         const tName = thresholdMatch[1];
-        const t = thresholds[tName];
-        if (!t) return { verified: false, error: `Threshold "${tName}" not in registry` };
+        const t = registry[tName];
+        if (!t) return { verified: false, unknown: true, error: `Threshold "${tName}" not in registry` };
 
         // Get the value to check — either from explicit path or current entity
         let actualValue;
@@ -476,25 +506,30 @@ function evaluateCondition(condition, env, adapter) {
         }
 
         // No entity context and no explicit path: nothing is addressable.
-        if (!fieldPath) return { verified: false, error: `No entity context for threshold ${tName}` };
+        if (!fieldPath) return { verified: false, unknown: true, error: `No entity context for threshold ${tName}` };
 
         const resolution = adapter.resolve(fieldPath);
         actualValue = resolution.value;
 
-        if (actualValue === undefined && t.op !== 'is_null') return { verified: false, error: `No value for ${t.field}` };
+        if (actualValue === undefined && t.op !== 'is_null') return { verified: false, unknown: true, error: `No value for ${t.field}` };
 
         // Unit check: if threshold declares a unit, the fact store must declare a matching unit
         if (t.unit && fieldPath) {
             const storeUnit = resolution.unit;
             if (storeUnit == null) {
-                return { verified: false, error: `Threshold expects unit ${t.unit}, but field has no unit` };
+                return { verified: false, unknown: true, error: `Threshold expects unit ${t.unit}, but field has no unit` };
             }
             if (String(storeUnit) !== String(t.unit)) {
-                return { verified: false, error: `Unit mismatch: ${t.unit} vs ${storeUnit}` };
+                return { verified: false, unknown: true, error: `Unit mismatch: ${t.unit} vs ${storeUnit}` };
             }
         }
 
-        const result = evaluateThreshold(tName, actualValue);
+        const result = evaluateThreshold(tName, actualValue, registry);
+        // An invalid evaluation (non-numeric value under an ordering operator,
+        // unknown operator) is unresolvable, not false.
+        if (!result.valid) {
+            return { verified: false, unknown: true, error: result.error, ...getTrustFields(resolution) };
+        }
         return {
             verified: result.result,
             explanation: result.explanation,
@@ -508,8 +543,8 @@ function evaluateCondition(condition, env, adapter) {
     const compMatch = condition.match(/^(.+?)\s*(>=|<=|>|<|==|!=)\s*(.+)$/);
     if (compMatch) {
         // Reject bare literal comparisons — must use threshold registry
-        return { verified: false, error: `Direct comparisons not allowed — use the threshold registry (${Object.keys(thresholds).join(', ')})` };
+        return { verified: false, unknown: true, error: `Direct comparisons not allowed — use the threshold registry (${Object.keys(registry).join(', ')})` };
     }
 
-    return { verified: false, error: `Niet-herkende conditie: ${condition}` };
+    return { verified: false, unknown: true, error: `Unrecognized condition: ${condition}` };
 }
