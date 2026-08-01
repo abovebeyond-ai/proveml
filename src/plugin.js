@@ -369,7 +369,7 @@ export default function provemlPlugin(md, options = {}) {
             field: `inference:${label}`,
             value: condition,
             entityPath: env.currentEntity?.path || null,
-            status: result.verified ? 'verified' : result.error ? 'unverifiable' : 'mismatch',
+            status: result.verified ? 'verified' : result.unknown ? 'unverifiable' : 'mismatch',
             path: `inference:${label}`,
             actual: result.explanation || result.error,
             inferenceResult: result
@@ -384,7 +384,7 @@ export default function provemlPlugin(md, options = {}) {
         const entityColor = env.currentEntity ? getEntityColor(env, env.currentEntity.path) : '#a78bfa';
 
         const tokenOpen = state.push('proveml_inference_open', 'span', 1);
-        tokenOpen.attrSet('class', `proveml-inference ${result.verified ? 'proveml-verified' : 'proveml-failed'}${trustClassNames(result)}`);
+        tokenOpen.attrSet('class', `proveml-inference ${result.verified ? 'proveml-verified' : result.unknown ? 'proveml-unverifiable' : 'proveml-failed'}${trustClassNames(result)}`);
         tokenOpen.attrSet('data-label', label);
         tokenOpen.attrSet('data-condition', condition);
         tokenOpen.attrSet('data-verified', String(result.verified || false));

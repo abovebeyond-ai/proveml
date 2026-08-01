@@ -184,13 +184,15 @@ console.log('\n=== Inference: AND combination ===');
 console.log('\n=== Inference: rejects bare comparisons ===');
 {
     const { html } = render('@[student:100]{Ylan} ?[custom: passRate > 3]{test}.');
-    assert('bare comparison rejected', html.includes('proveml-failed'));
+    // Unresolvable, not false: rendered as unverifiable (amber), never verified
+    assert('bare comparison rejected', html.includes('proveml-unverifiable') && !html.includes('proveml-inference proveml-verified'));
 }
 
 console.log('\n=== Inference: unknown threshold ===');
 {
     const { html } = render('@[student:100]{Ylan} ?[x: FAKE_THRESHOLD]{test}.');
-    assert('unknown threshold rejected', html.includes('proveml-failed'));
+    // Table 3: an unregistered threshold is unverifiable (amber), not a mismatch
+    assert('unknown threshold rejected', html.includes('proveml-unverifiable') && !html.includes('proveml-inference proveml-verified'));
 }
 
 // ── Scoped entity form ──
@@ -377,7 +379,7 @@ console.log('\n=== Inference: NOT ===');
 console.log('\n=== Inference: missing label reference ===');
 {
     const { html } = render('@[student:100]{Ylan Vercruysse} ?[broken: @nonexistent]{test}.');
-    assert('missing label reference fails', html.includes('proveml-failed'));
+    assert('missing label reference fails', html.includes('proveml-unverifiable') && !html.includes('proveml-inference proveml-verified'));
 }
 
 // ── diff_gt ──
@@ -594,6 +596,50 @@ console.log('\n=== Renderer: scoped entity gap text and closing brace ===');
     assert('scoped closing brace does not leak into output',
         !result.html.endsWith('}</div>') && !result.html.includes('levels}'),
         `html ends with: ${result.html.slice(-60)}`);
+}
+
+// ── Three-valued soundness regressions (found in the pre-publication audit) ──
+
+console.log('\n=== Soundness: unknown propagates through label references ===');
+{
+    // NOT @a where a is an unregistered threshold must NOT verify: negating an
+    // unresolvable condition is unresolvable, one indirection deep included.
+    const r = verifyProveml('@[student:100]{Ylan} ?[a: TOTALLY_UNDEFINED]{x} ?[b: NOT @a]{y}.', factStore);
+    const b = r.details.find(d => d.type === 'inference' && d.label === 'b');
+    assert('NOT @unresolved-label does not verify', b.status !== 'verified', JSON.stringify(b));
+    assert('NOT @unresolved-label is unverifiable, not mismatch', b.status === 'unverifiable', JSON.stringify(b));
+}
+
+console.log('\n=== Soundness: plugin agrees with verifier on unresolvable NOT ===');
+{
+    const { html } = render('@[student:100]{Ylan} ?[c: NOT TOTALLY_UNDEFINED]{z}.');
+    assert('plugin: NOT unknown-threshold never renders verified',
+        !html.includes('proveml-inference proveml-verified'), html);
+    const { html: html2 } = render('@[student:100]{Ylan} ?[d: NOT @nonexistent]{z}.');
+    assert('plugin: NOT missing-label never renders verified',
+        !html2.includes('proveml-inference proveml-verified'), html2);
+}
+
+console.log('\n=== Soundness: eq/neq compare canonical strings, so categoricals work ===');
+{
+    // Table 1's own example: status eq "active" on a non-numeric field
+    const store = { 'account:9.name': 'Acme', 'account:9.status': 'active' };
+    const reg = { IS_ACTIVE: { field: 'status', op: 'eq', value: 'active', label: 'active' },
+                  IS_INACTIVE: { field: 'status', op: 'neq', value: 'active', label: 'inactive' } };
+    const r = verifyProveml('@[account:9]{Acme} ?[a: IS_ACTIVE]{active}.', store, { thresholds: reg });
+    assert('eq on categorical value verifies', r.verified === 2, JSON.stringify(r.errors));
+    const r2 = verifyProveml('@[account:9]{Acme} ?[i: IS_INACTIVE]{inactive}.', store, { thresholds: reg });
+    assert('neq on categorical value fails cleanly', r2.errors.length === 1 && r2.details.some(d => d.type === 'inference' && d.status === 'failed'), JSON.stringify(r2.details));
+}
+
+console.log('\n=== Soundness: a scope restores the context in force when it opened ===');
+{
+    // A simple entity inside a top-level scope must not leak out of it
+    const store = { 'facility:7.name': 'Plant North', 'sensor:42.name': 'Sensor X', 'sensor:42.value': 5, 'facility:7.value': 9 };
+    const r = verifyProveml('@[facility:7 "Plant North"]{contains @[sensor:42]{Sensor X}} and later %[value]{5}.', store);
+    const fact = r.details.find(d => d.type === 'fact');
+    assert('fact after a closed top-level scope has no entity context',
+        fact.status === 'no-context', JSON.stringify(fact));
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
