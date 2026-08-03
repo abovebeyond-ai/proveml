@@ -35,6 +35,11 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
+      # Zonder dit draaien de tests op een machine zonder markdown-it, en dat
+      # faalt op een manier die niets zegt over het pakket zelf.
+      - name: afhankelijkheden
+        run: npm ci
+
       # De poort. Een pakket dat zijn eigen tests niet haalt, hoort niet te
       # vertrekken, en zeker niet een pakket waarvan de hele belofte verificatie is.
       - name: tests
