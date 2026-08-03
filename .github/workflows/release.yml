@@ -1,0 +1,58 @@
+# Publiceren vanaf een tag, zonder token en zonder eenmalige code.
+#
+# npm eist bij publish een TOTP-code, en die bestaat niet als je 2FA met een
+# passkey doet: een passkey werkt in een browser, niet in een terminal. De uitweg
+# is niet een token dat 2FA omzeilt maar OIDC: GitHub bewijst aan npm wie deze
+# workflow draait, en npm vertrouwt die herkomst. Geen geheim om te bewaren, en
+# geen geheim om te lekken.
+#
+# Dat past bij de rest: de publicatie komt aantoonbaar uit deze repo in plaats
+# van van een laptop, en de tests staan ervoor als poort - een release die de
+# tests niet haalt, vertrekt niet.
+#
+# Eenmalig instellen op npmjs.com: pakket proveml -> Settings -> Trusted
+# Publisher -> GitHub Actions, repo ShaneDeconinck/proveml, workflow release.yml.
+# Daarna is publiceren: git tag v0.2.0 && git push origin v0.2.0
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Nodig voor OIDC: hiermee kan de workflow zich bij npm legitimeren.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      # De poort. Een pakket dat zijn eigen tests niet haalt, hoort niet te
+      # vertrekken, en zeker niet een pakket waarvan de hele belofte verificatie is.
+      - name: tests
+        run: npm test
+
+      # De tag moet zeggen wat package.json zegt. Zonder deze controle publiceer
+      # je ooit v0.3.0 met 0.2.0 erin, en dan liegt de release-historie.
+      - name: tag en versie moeten overeenkomen
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "tag $TAG komt niet overeen met package.json $PKG"
+            exit 1
+          fi
+          echo "tag en package.json staan allebei op $PKG"
+
+      # npm 11 zet latest niet stil naar een lager nummer; zolang de oude 1.x-lijn
+      # nog op de registry staat, moet de tag er expliciet bij.
+      - name: publiceren
+        run: npm publish --tag latest --provenance
