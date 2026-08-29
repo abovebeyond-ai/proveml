@@ -156,12 +156,12 @@ export function renderProveml(markup, factStore, options = {}) {
                         : PROVEML_CLASSNAMES.unverifiable;
 
             let title = path;
-            if (detail.status === 'verified') title = `${path} = ${detail.value}`;
+            if (detail.status === 'verified') title = detail.display ? `${path} = ${detail.value} (shown as ${detail.display})` : `${path} = ${detail.value}`;
             else if (detail.status === 'value-mismatch') title = `${path}: expected ${detail.expected}`;
             else if (detail.status === 'no-context') title = 'no entity context';
             else if (path) title = `${path}: not found`;
 
-            html += `<span class="${PROVEML_CLASSNAMES.fact} ${statusClass}${trustClassName(detail.trustStatus)}" data-entity="${escapeHtml(entityPath)}" data-path="${escapeHtml(path)}"${trustDataAttrs(detail)} title="${escapeHtml(title)}">${escapeHtml(token.value)}</span>`;
+            html += `<span class="${PROVEML_CLASSNAMES.fact} ${statusClass}${trustClassName(detail.trustStatus)}" data-entity="${escapeHtml(entityPath)}" data-path="${escapeHtml(path)}" data-value="${escapeHtml(token.value)}"${trustDataAttrs(detail)} title="${escapeHtml(title)}">${escapeHtml(detail.display || token.value)}</span>`;
 
             if (options.showProofPaths && path) {
                 html += `<span class="${PROVEML_CLASSNAMES.proof}">[${escapeHtml(path)}]</span>`;

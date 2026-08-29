@@ -303,7 +303,7 @@ function inspectFactStore(factStore) {
 
     for (const { key, baseKey } of unitKeys) {
         if (!(baseKey in factStore)) {
-            errors.push(`${key}: unit metadata exists but the base field ${baseKey} is missing.`);
+            errors.push(`${key}: companion metadata exists but the base field ${baseKey} is missing.`);
         }
     }
 
@@ -363,12 +363,12 @@ function parseFactKey(key) {
         };
     }
 
-    if (field === '_unit') {
-        return { ok: false, error: 'unit keys must point to a real base field, not just ._unit.' };
+    if (field === '_unit' || field === '_display') {
+        return { ok: false, error: `${field} keys must point to a real base field, not just .${field}.` };
     }
 
-    const isUnit = field.endsWith('._unit');
-    const baseField = isUnit ? field.slice(0, -'._unit'.length) : field;
+    const isUnit = field.endsWith('._unit') || field.endsWith('._display');
+    const baseField = field.endsWith('._unit') ? field.slice(0, -'._unit'.length) : field.endsWith('._display') ? field.slice(0, -'._display'.length) : field;
 
     if (!baseField) {
         return { ok: false, error: 'unit keys must point to a real base field.' };

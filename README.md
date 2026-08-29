@@ -85,7 +85,7 @@ numbers inside code are not counted.
 
 - It verifies **consistency with your data**, not truth. Wrong data, wrong verified claims.
 - It checks what is **inside** markup. Prose outside is unchecked, by design.
-- Values must match exactly: `18.5`, not `18.50` and not "about 18".
+- Values must match exactly: `18.5`, not `18.50` and not "about 18". The *reader* can still see "$391.0 billion": declare `revenue._display: 'currency:USD:1'` in the store and the renderer formats the verified value, keeping the canonical one on the element. Rules: `grouped[:digits]`, `compact[:digits]`, `currency:CODE[:digits]`, `percent[:digits]`, optionally prefixed `locale=nl-BE;`.
 - Derived values (differences, counts) need to exist in the store to be claimable.
 - An entity verifies when the name the reader sees equals the name at the id the model chose; nothing checks that the id is the right record. So the verifier reports whether that name is unique in the store (`subjectUnique`), `doctor` warns on duplicate names, and `--strict` makes an ambiguous subject a finding.
 - If the store carries a unit (`revenue._unit`), the claim must carry it too: `%[revenue]{416161000000 USD}`.
