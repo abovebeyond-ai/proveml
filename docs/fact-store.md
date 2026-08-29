@@ -40,6 +40,18 @@ Optional unit metadata uses the same path with a `._unit` suffix:
 }
 ```
 
+Optional display rules use the same path with a `._display` suffix. They change what the renderer shows for a verified value, never what the claim must say:
+
+```js
+{
+  'company:aapl.revenue': 391035000000,
+  'company:aapl.revenue._unit': 'USD',
+  'company:aapl.revenue._display': 'currency:USD:1'   // renders as $391.0 billion
+}
+```
+
+Rules: `grouped[:digits]` (391,035,000,000), `compact[:digits]` (391.0 billion), `currency:CODE[:digits]` ($391.0 billion), `percent[:digits]` (53.0%); prefix `locale=nl-BE;` for another locale. An unknown rule shows the canonical value.
+
 ## Naming rules
 
 - Use `entityType:entityId` as the stable subject prefix.

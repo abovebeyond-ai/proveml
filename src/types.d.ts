@@ -86,6 +86,8 @@ export interface FactVerificationDetail extends TrustMetadataFields, Verificatio
   /** Only present when status is 'no-context' (there is no path without an entity). */
   field?: string;
   value: string;
+  /** The value as the store's `_display` declaration formats it; the claim and the check keep `value`. */
+  display?: string;
   status: 'verified' | 'field-not-found' | 'value-mismatch' | 'no-context';
   expected?: string;
   errorClass?: 'reference' | 'value' | 'context';

@@ -99,6 +99,50 @@ export function subjectUniqueness(adapter, path, name) {
     return same.length ? { subjectUnique: false, ambiguousWith: same } : { subjectUnique: true };
 }
 
+/**
+ * How a verified value is shown to the reader.
+ *
+ * Exact equality is what makes verification cheap and explainable, and it is
+ * also what made verified prose read like a database dump: a claim had to say
+ * 391035000000. The way out is not tolerance in the verifier but formatting in
+ * the data layer, where the arithmetic already lives: a store may declare
+ * `field._display` next to `field`, and the renderer shows the value that way
+ * while the claim, the check and the audit path keep the canonical form.
+ *
+ * The declaration is a small string, so it fits a flat store:
+ *   grouped[:digits]            391,035,000,000
+ *   compact[:digits]            391.0 billion
+ *   currency:CODE[:digits]      $391.0 billion  (compact, with the currency)
+ *   percent[:digits]            53.0%
+ *   locale=xx-XX;<spec>         any of the above in that locale
+ * Unknown specs are ignored: a bad declaration shows the canonical value, it
+ * never hides it.
+ */
+export function formatDisplay(value, spec) {
+    if (typeof spec !== 'string' || spec.trim() === '') return null;
+    let locale = 'en';
+    let rule = spec.trim();
+    const m = rule.match(/^locale=([A-Za-z-]+);(.*)$/);
+    if (m) { locale = m[1]; rule = m[2]; }
+    const [kind, a, b] = rule.split(':');
+    const num = typeof value === 'number' ? value : Number(String(value).replace(/,/g, ''));
+    if (!Number.isFinite(num)) return null;
+    try {
+        if (kind === 'grouped') return new Intl.NumberFormat(locale, { maximumFractionDigits: Number(a ?? 2) }).format(num);
+        if (kind === 'compact') return new Intl.NumberFormat(locale, { notation: 'compact', compactDisplay: 'long', minimumFractionDigits: Number(a ?? 1), maximumFractionDigits: Number(a ?? 1) }).format(num);
+        if (kind === 'currency' && a) {
+            // Intl drops the long compact form under a currency style, so
+            // compose it: the currency's own symbol, then the long compact number.
+            const digits = Number(b ?? 1);
+            const symbol = new Intl.NumberFormat(locale, { style: 'currency', currency: a, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find(p => p.type === 'currency')?.value ?? a;
+            const number = new Intl.NumberFormat(locale, { notation: 'compact', compactDisplay: 'long', minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Math.abs(num));
+            return `${num < 0 ? '-' : ''}${symbol}${number}`;
+        }
+        if (kind === 'percent') return new Intl.NumberFormat(locale, { minimumFractionDigits: Number(a ?? 1), maximumFractionDigits: Number(a ?? 1) }).format(num) + '%';
+    } catch { return null; }
+    return null;
+}
+
 /** A field that carries its own entity: `student:20414.passRate`. */
 const ABSOLUTE_FIELD = /^[A-Za-z_][A-Za-z0-9_]*:[A-Za-z0-9_-]+\./;
 
@@ -120,7 +164,9 @@ export function checkFact(adapter, entityPath, field, value) {
     if (!resolution.found) return { status: 'field-not-found', path, errorClass: 'reference' };
     const expected = getExpectedSurfaceValue(resolution);
     if (String(value) === String(expected)) {
-        return { status: 'verified', path, ...getTrustFields(resolution) };
+        const spec = adapter.resolve(`${path}._display`);
+        const display = spec.found ? formatDisplay(resolution.value, spec.value) : null;
+        return { status: 'verified', path, ...(display ? { display } : {}), ...getTrustFields(resolution) };
     }
     return { status: 'value-mismatch', path, expected, errorClass: 'value', ...getTrustFields(resolution) };
 }

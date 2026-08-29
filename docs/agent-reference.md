@@ -135,7 +135,7 @@ Rules:
 - When the subject is not the nearest entity ("Amir of 5OL has a pass rate of 53%"), name it in the field: `%[student:20414.passRate]{53}`.
 - Direct fact verification is representation-level equality against the fact store.
 - Trust is a separate axis from value matching: a claim can match the fact store and still be source-unverified.
-- Do not assume numeric normalization. If the store has `29.9`, `%[price]{29.90}` is a mismatch.
+- Do not assume numeric normalization. If the store has `29.9`, `%[price]{29.90}` is a mismatch. Never round: write the canonical value; if the store declares `field._display`, the renderer shows the rounded form to the reader.
 - If the store has a `_unit` companion, the claim must carry the unit: `%[balance]{-12400 EUR}`. `%[balance]{-12400}` is a mismatch.
 - If the field is missing, the fact is unverifiable.
 - If no entity is bound, the fact is `no-context`.

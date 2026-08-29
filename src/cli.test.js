@@ -36,6 +36,7 @@ writeFileSync(badFactsPath, JSON.stringify({
     'student:100.passRate._unit': '%',
     'student:100.profile': { enrolled: true },
     'student:101.attendance._unit': '%',
+    'student:102.score._display': 'grouped',
     'bad key': 10,
 }, null, 2));
 
@@ -59,6 +60,7 @@ console.log('\n=== CLI: doctor ===');
     const data = JSON.parse(out.stdout);
     assert('doctor exits non-zero on malformed fact store', out.status === 1, `got ${out.status}`);
     assert('doctor catches orphan unit metadata', data.errors.some(error => error.includes('attendance._unit')), JSON.stringify(data.errors));
+    assert('doctor catches orphan display metadata', data.errors.some(error => error.includes('score._display')), JSON.stringify(data.errors));
     assert('doctor catches object values', data.errors.some(error => error.includes('values must be scalars')), JSON.stringify(data.errors));
     assert('doctor warns about missing entity name', data.warnings.some(warning => warning.includes('student:100')), JSON.stringify(data.warnings));
     assert('doctor warns about a name shared by two records', data.warnings.some(warning => warning.includes('student:7, student:8') && warning.includes('ambiguous')), JSON.stringify(data.warnings));

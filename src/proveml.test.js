@@ -785,5 +785,32 @@ console.log('\n=== Subject uniqueness: what the reader sees may name two records
     assert('annotate says which other record shares the name', out.includes('also names student:2'), out);
 }
 
+
+console.log('\n=== Display: the store formats, the claim stays canonical ===');
+{
+    const store = {
+        'company:aapl.name': 'Apple Inc.',
+        'company:aapl.revenue': 391035000000, 'company:aapl.revenue._unit': 'USD', 'company:aapl.revenue._display': 'currency:USD:1',
+        'company:aapl.employees': 164000, 'company:aapl.employees._display': 'grouped',
+        'company:aapl.margin': 26.3, 'company:aapl.margin._display': 'percent:1',
+        'company:aapl.eps': 6.08, 'company:aapl.eps._display': 'nonsense',
+        'company:aapl.staff': 164000, 'company:aapl.staff._display': 'locale=nl-BE;grouped',
+    };
+    const md = '@[company:aapl]{Apple Inc.} reported %[revenue]{391035000000 USD} with %[employees]{164000} employees, a margin of %[margin]{26.3}, eps of %[eps]{6.08} and %[staff]{164000} staff.';
+    const r = verifyProveml(md, store);
+    assert('all claims still verify by exact equality', r.verified === r.total && r.total === 6, JSON.stringify(r.errors));
+    const d = Object.fromEntries(r.details.filter(x => x.type === 'fact').map(x => [x.path.split('.').pop(), x.display]));
+    assert('currency compact', d.revenue === '$391.0 billion', d.revenue);
+    assert('grouped', d.employees === '164,000', d.employees);
+    assert('percent', d.margin === '26.3%', d.margin);
+    assert('an unknown spec shows nothing extra', d.eps === undefined, d.eps);
+    assert('locale prefix', d.staff === '164.000', d.staff);
+    const { html } = renderProveml(md, store);
+    assert('render shows the display form', html.includes('>$391.0 billion</span>'), html);
+    assert('render keeps the canonical value', html.includes('data-value="391035000000 USD"') && html.includes('shown as $391.0 billion'), html);
+    assert('a mismatch is never prettified', verifyProveml('@[company:aapl]{Apple Inc.} %[revenue]{1 USD}', store).details[1].display === undefined);
+    assert('stripProveml keeps the canonical text', stripProveml(md).includes('391035000000 USD'));
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);
