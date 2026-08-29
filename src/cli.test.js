@@ -30,6 +30,8 @@ writeFileSync(factsPath, JSON.stringify({
 writeFileSync(inputPath, '@[student:100]{Alice Vermeer} reached %[passRate]{85}% across %[evaluated]{42} attainment levels.');
 
 writeFileSync(badFactsPath, JSON.stringify({
+    'student:7.name': 'Alice Vermeer',
+    'student:8.name': 'Alice Vermeer',
     'student:100.passRate': 85,
     'student:100.passRate._unit': '%',
     'student:100.profile': { enrolled: true },
@@ -59,6 +61,7 @@ console.log('\n=== CLI: doctor ===');
     assert('doctor catches orphan unit metadata', data.errors.some(error => error.includes('attendance._unit')), JSON.stringify(data.errors));
     assert('doctor catches object values', data.errors.some(error => error.includes('values must be scalars')), JSON.stringify(data.errors));
     assert('doctor warns about missing entity name', data.warnings.some(warning => warning.includes('student:100')), JSON.stringify(data.warnings));
+    assert('doctor warns about a name shared by two records', data.warnings.some(warning => warning.includes('student:7, student:8') && warning.includes('ambiguous')), JSON.stringify(data.warnings));
 }
 
 console.log('\n=== CLI: strip ===');

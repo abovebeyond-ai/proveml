@@ -23,6 +23,8 @@ export interface TrustMetadataFields {
 }
 
 export interface TrustAdapter {
+  /** Optional: every record with a name, so the verifier can measure subject uniqueness. */
+  subjects?(): { path: string; name: string }[];
   resolve(path: string): {
     found: boolean;
     value?: FactStoreValue;
@@ -65,6 +67,15 @@ export interface EntityVerificationDetail extends TrustMetadataFields, Verificat
   path: string;
   name: string;
   status: 'verified' | 'entity-not-found' | 'name-mismatch';
+  /**
+   * Whether the rendered name is unique among records of this type: true,
+   * false (with `ambiguousWith`), or null when the adapter cannot enumerate
+   * its records. The verifier checks that the name matches the chosen id; it
+   * cannot check that the id is the right one, and an ambiguous name is where
+   * that gap is visible.
+   */
+  subjectUnique?: boolean | null;
+  ambiguousWith?: string[];
   expected?: FactStoreValue;
   errorClass?: 'reference';
 }
@@ -194,6 +205,7 @@ export interface ProveMLClassNames {
   unverifiable: string;
   noContext: string;
   nameMismatch: string;
+  ambiguous: string;
   entityHighlight: string;
   trustVerified: string;
   trustUnverified: string;

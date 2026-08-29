@@ -313,6 +313,20 @@ function inspectFactStore(factStore) {
         }
     }
 
+    // Two records of one type with the same name render identically as a
+    // subject; a reader could not tell a wrong id from the right one.
+    const byName = new Map();
+    for (const key of keys) {
+        const parsed = parseFactKey(key);
+        if (!parsed.ok || parsed.field !== 'name') continue;
+        const type = parsed.entityPrefix.slice(0, parsed.entityPrefix.indexOf(':'));
+        const k = `${type}\u0000${String(factStore[key])}`;
+        byName.set(k, [...(byName.get(k) || []), parsed.entityPrefix]);
+    }
+    for (const [k, paths] of byName) {
+        if (paths.length > 1) warnings.push(`${paths.join(', ')}: share the name "${k.split('\u0000')[1]}"; a rendered subject with this name is ambiguous.`);
+    }
+
     return {
         ok: errors.length === 0,
         summary: `${errors.length} error${errors.length === 1 ? '' : 's'}, ${warnings.length} warning${warnings.length === 1 ? '' : 's'}`,
@@ -407,7 +421,7 @@ Notes:
   - verify prints the text with markers underneath; add --paths for store paths.
   - verify always reports coverage (numbers outside any claim); --strict makes each one a finding.
   - strip removes ProveML syntax and keeps the visible text content.
-  - doctor checks fact-store shape, key hygiene, unit companions, and missing .name fields.
+  - doctor checks fact-store shape, key hygiene, unit companions, missing .name fields, and duplicate names per type.
   - Use --text "..." instead of --input for small snippets.
   - If no --input or --text is given, strip/verify/render read markup from stdin.
   - render prints HTML to stdout unless --output is provided.

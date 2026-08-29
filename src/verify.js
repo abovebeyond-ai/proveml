@@ -24,8 +24,10 @@ import { assertRegistry, checkEntity, checkFact, evaluateCondition, mergeTrustFi
  * @param {object} factStoreOrAdapter - Flat key-value store or trust adapter
  * @param {object} [options] - Optional: { snapshot: string, thresholds: object, strict: boolean }
  *   options.strict: a number in the prose that no construct covers is a
- *   finding (status 'unmarked'), not just a count. Without it, verification
- *   only judges what is inside markup; coverage is still reported.
+ *   finding (status 'unmarked'), not just a count, and a verified entity whose
+ *   rendered name is shared by another record of the same type is a finding
+ *   too (the reader could not tell them apart). Without it, verification only
+ *   judges what is inside markup; coverage and uniqueness are still reported.
  *   options.thresholds replaces the built-in registry for this verification:
  *   a domain defines its own vocabulary, and the built-in example thresholds
  *   (education, finance, health) stop being part of the allowed language.
@@ -55,6 +57,9 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
             results.total++;
             if (check.status === 'verified') {
                 results.verified++;
+                if (check.subjectUnique === false && options?.strict) {
+                    results.errors.push(`@[${path}]{${tok.name}}: rendered subject is not unique, also names ${check.ambiguousWith.join(', ')}`);
+                }
             } else if (check.status === 'entity-not-found') {
                 results.errors.push(`@[${path}]: not found`);
             } else {

@@ -36,6 +36,10 @@
     border-bottom-style: wavy;
     border-bottom-color: var(--proveml-danger-color);
 }
+.proveml-entity.proveml-ambiguous {
+    border-bottom-style: double;
+    border-bottom-color: var(--proveml-warning-color);
+}
 .proveml-entity.proveml-unverifiable {
     border-bottom-style: dashed;
     border-bottom-color: var(--proveml-warning-color);

@@ -24,6 +24,19 @@ function normalizeTrust(trust) {
 
 export function plainAdapter(factStore = {}) {
     return {
+        /**
+         * Every record with a name, as [{path, name}]. Lets the verifier ask
+         * whether a rendered subject is unique in the store. Adapters over
+         * sources that cannot be enumerated may omit this; uniqueness is then
+         * unknown rather than assumed.
+         */
+        subjects() {
+            const out = [];
+            for (const [key, value] of Object.entries(factStore)) {
+                if (key.endsWith('.name') && key.indexOf('.') === key.length - 5) out.push({ path: key.slice(0, -5), name: String(value) });
+            }
+            return out;
+        },
         resolve(path) {
             const value = factStore[path];
             if (value === undefined) return { found: false };

@@ -32,6 +32,7 @@ export const PROVEML_CLASSNAMES = Object.freeze({
     unverifiable: 'proveml-unverifiable',
     noContext: 'proveml-no-context',
     nameMismatch: 'proveml-name-mismatch',
+    ambiguous: 'proveml-ambiguous',
     entityHighlight: 'proveml-entity-highlight',
     trustVerified: 'proveml-trust-verified',
     trustUnverified: 'proveml-trust-unverified',
@@ -122,7 +123,9 @@ export function renderProveml(markup, factStore, options = {}) {
                     ? PROVEML_CLASSNAMES.nameMismatch
                     : PROVEML_CLASSNAMES.unverifiable;
 
-            html += `<span class="${PROVEML_CLASSNAMES.entity} ${statusClass}${trustClassName(detail.trustStatus)}" data-entity="${escapeHtml(entityPath)}"${trustDataAttrs(detail)} title="${escapeHtml(`${entityPath}.name`)}">${escapeHtml(token.name)}</span>`;
+            const ambiguous = detail.subjectUnique === false;
+            const entityTitle = ambiguous ? `${entityPath}.name (this name is also ${detail.ambiguousWith.join(', ')})` : `${entityPath}.name`;
+            html += `<span class="${PROVEML_CLASSNAMES.entity} ${statusClass}${ambiguous ? ' ' + PROVEML_CLASSNAMES.ambiguous : ''}${trustClassName(detail.trustStatus)}" data-entity="${escapeHtml(entityPath)}"${detail.subjectUnique != null ? ` data-subject-unique="${detail.subjectUnique}"` : ''}${trustDataAttrs(detail)} title="${escapeHtml(entityTitle)}">${escapeHtml(token.name)}</span>`;
 
             if (options.showProofPaths) {
                 html += `<span class="${PROVEML_CLASSNAMES.proof}">[${escapeHtml(`${entityPath}.name`)}]</span>`;
@@ -249,6 +252,10 @@ export const PROVEML_CSS = `
 .proveml-entity.proveml-name-mismatch {
     border-bottom-style: wavy;
     border-bottom-color: var(--proveml-danger-color);
+}
+.proveml-entity.proveml-ambiguous {
+    border-bottom-style: double;
+    border-bottom-color: var(--proveml-warning-color);
 }
 .proveml-entity.proveml-unverifiable {
     border-bottom-style: dashed;

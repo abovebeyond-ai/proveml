@@ -77,9 +77,26 @@ export function checkEntity(adapter, path, name) {
     if (!resolution.found) return { status: 'entity-not-found', errorClass: 'reference' };
     const expected = resolution.value;
     if (String(expected) === String(name)) {
-        return { status: 'verified', ...getTrustFields(resolution) };
+        return { status: 'verified', ...subjectUniqueness(adapter, path, name), ...getTrustFields(resolution) };
     }
     return { status: 'name-mismatch', expected, errorClass: 'reference', ...getTrustFields(resolution) };
+}
+
+/**
+ * Is the rendered subject unique in the store?
+ *
+ * The verifier guarantees that the name the reader sees is the name stored at
+ * the id the model chose; it does not guarantee the model chose the right id.
+ * When two records of the same type carry the same name, a wrong id renders
+ * identically to the right one and only the audit path tells them apart. So
+ * uniqueness is measured, not assumed: `true`, `false` with the other paths,
+ * or `null` when the adapter cannot enumerate its records.
+ */
+export function subjectUniqueness(adapter, path, name) {
+    if (typeof adapter.subjects !== 'function') return { subjectUnique: null };
+    const type = path.slice(0, path.indexOf(':'));
+    const same = adapter.subjects().filter(s => s.name === String(name) && s.path !== path && s.path.slice(0, s.path.indexOf(':')) === type).map(s => s.path);
+    return same.length ? { subjectUnique: false, ambiguousWith: same } : { subjectUnique: true };
 }
 
 /** A field that carries its own entity: `student:20414.passRate`. */

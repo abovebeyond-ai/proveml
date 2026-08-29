@@ -87,6 +87,7 @@ numbers inside code are not counted.
 - It checks what is **inside** markup. Prose outside is unchecked, by design.
 - Values must match exactly: `18.5`, not `18.50` and not "about 18".
 - Derived values (differences, counts) need to exist in the store to be claimable.
+- An entity verifies when the name the reader sees equals the name at the id the model chose; nothing checks that the id is the right record. So the verifier reports whether that name is unique in the store (`subjectUnique`), `doctor` warns on duplicate names, and `--strict` makes an ambiguous subject a finding.
 - If the store carries a unit (`revenue._unit`), the claim must carry it too: `%[revenue]{416161000000 USD}`.
 - `THRESHOLD(path)` may point at another entity, never at another field: `IS_STRONG(student:100.absent)` is unverifiable, because the registry decides which field a judgment is about.
 - Constructs inside fenced code blocks, code spans, or preceded by a backslash are not claims. The verifier and the markdown-it plugin agree on this; both judge through the same core.

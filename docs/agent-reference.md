@@ -117,6 +117,10 @@ Rules:
 - Scoped form creates a local lexical scope for nested facts and inferences.
 - After a scoped block closes, outer context is restored when present.
 
+Rules:
+
+- The verifier checks that the display name equals the name stored at the id you wrote. It cannot check that the id is the right record. Use the id from the data, never a guessed one; if two records share a name, the result says so (`subjectUnique: false`).
+
 ## Fact semantics
 
 Example:

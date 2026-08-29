@@ -765,5 +765,25 @@ console.log('\n=== Facts may name their own entity ===');
     assert('stripProveml unchanged', stripProveml(md) === 'Amir Janssens of 5OL has a pass rate of 53%; the class sits at 61%.');
 }
 
+
+console.log('\n=== Subject uniqueness: what the reader sees may name two records ===');
+{
+    const store = { 'student:1.name': 'Amir Janssens', 'student:1.passRate': 53, 'student:2.name': 'Amir Janssens', 'student:2.passRate': 12, 'offering:9.name': 'Amir Janssens' };
+    const r = verifyProveml('@[student:1]{Amir Janssens} has %[passRate]{53}%.', store);
+    assert('a shared name is reported on a verified entity', r.details[0].status === 'verified' && r.details[0].subjectUnique === false && r.details[0].ambiguousWith.join() === 'student:2', JSON.stringify(r.details[0]));
+    assert('a same name in another type does not count', !r.details[0].ambiguousWith.includes('offering:9'));
+    assert('without strict it is not an error', r.errors.length === 0);
+    const s = verifyProveml('@[student:1]{Amir Janssens} has %[passRate]{53}%.', store, { strict: true });
+    assert('strict: an ambiguous subject is a finding', s.errors.length === 1 && /not unique/.test(s.errors[0]), JSON.stringify(s.errors));
+    const u = verifyProveml('@[student:1]{Amir Janssens}', { 'student:1.name': 'Amir Janssens', 'student:3.name': 'Noor Peeters' });
+    assert('a unique name is reported as such', u.details[0].subjectUnique === true);
+    const adapter = { resolve: (p) => (p === 'student:1.name' ? { found: true, value: 'Amir Janssens' } : { found: false }) };
+    assert('an adapter that cannot enumerate gives null, not true', verifyProveml('@[student:1]{Amir Janssens}', adapter).details[0].subjectUnique === null);
+    const { html } = renderProveml('@[student:1]{Amir Janssens}', store);
+    assert('render marks the ambiguous subject', html.includes('proveml-ambiguous') && html.includes('data-subject-unique="false"'), html);
+    const out = annotate('@[student:1]{Amir Janssens} has %[passRate]{53}%.', r, { color: false });
+    assert('annotate says which other record shares the name', out.includes('also names student:2'), out);
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

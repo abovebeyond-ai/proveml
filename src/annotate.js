@@ -181,8 +181,14 @@ export function annotate(markup, result, opts = {}) {
         }
         if (under.trim()) out.push(`  ${under}`);
 
-        // One label line per failing construct; verified ones need no words.
+        // One label line per failing construct; verified ones need no words,
+        // unless the subject the reader sees could be another record.
         for (const s of onLine) {
+            if (s.detail.status === 'verified' && s.detail.subjectUnique === false) {
+                const pad = ' '.repeat(s.start - lineStart);
+                out.push(`  ${pad}${paint(`‼ also names ${s.detail.ambiguousWith.join(', ')}`, 'amber', useColor)}`);
+                continue;
+            }
             if (s.detail.status === 'verified') continue;
             const st = STATUS[s.detail.status] || { mark: '·', color: null };
             const pad = ' '.repeat(s.start - lineStart);
