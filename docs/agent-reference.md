@@ -127,10 +127,12 @@ Example:
 
 Rules:
 
-- Facts verify against `currentEntity.field`.
+- Facts verify against `currentEntity.field`, the entity in force being the nearest preceding one.
+- When the subject is not the nearest entity ("Amir of 5OL has a pass rate of 53%"), name it in the field: `%[student:20414.passRate]{53}`.
 - Direct fact verification is representation-level equality against the fact store.
 - Trust is a separate axis from value matching: a claim can match the fact store and still be source-unverified.
 - Do not assume numeric normalization. If the store has `29.9`, `%[price]{29.90}` is a mismatch.
+- If the store has a `_unit` companion, the claim must carry the unit: `%[balance]{-12400 EUR}`. `%[balance]{-12400}` is a mismatch.
 - If the field is missing, the fact is unverifiable.
 - If no entity is bound, the fact is `no-context`.
 - `verifyProveml`, `renderProveml`, and the plugin `factStore` option may receive either a plain object or an adapter with `resolve(path)`.
@@ -158,10 +160,13 @@ Example:
 
 Rules:
 
-- Inferences verify a registered threshold or boolean composition.
-- Use labels for reuse: `?[low: IS_LOW]{low score}` then `?[risk: @low AND @missing]{low score with missing data}`.
-- Supported boolean composition: `@label`, `AND`, `OR`, `NOT`.
-- Prefer threshold names over bare comparisons in generated text.
+- Inferences verify a registered threshold or boolean composition. `IS_ABOVE_30` above must be registered (`IS_ABOVE_30: { field: 'netMargin', op: 'gt', value: 30 }`); it is not in the built-in example registry.
+- Threshold names are uppercase letters, digits and underscores, starting with a letter.
+- Use labels for reuse: `?[low: IS_LOW]{low score}` then `?[risk: @low AND @missing]{low score with missing data}`. Labels are document-global and must be defined before they are referenced.
+- Supported boolean composition: `@label`, `AND`, `OR`, `NOT`. No parentheses; precedence is `NOT`, then `AND`, then `OR`.
+- `THRESHOLD(entity:id.field)` evaluates against another entity. The field must be the one the threshold declares; a path to a different field is unverifiable.
+- Evaluation is three-valued: a condition that resolves to false is `failed`; one that cannot be resolved (unknown threshold, missing value, undefined label) is `unverifiable`, and `NOT` of an unresolvable condition stays unresolvable.
+- Bare comparisons (`passRate > 3`) are rejected; the registry is the only source of a bound.
 
 ## Threshold guidance
 
@@ -207,6 +212,10 @@ Rules:
 - Thresholds should operate on canonical values and expected units, not ad hoc unit parsing claims.
 - Keep the responsibility split clean: ProveML checks claim-to-fact consistency; adapters can check fact authenticity.
 
+## Coverage
+
+The verifier reports every standalone number in the prose that no construct covers (`result.unmarked`, `result.coverage`). With `{ strict: true }` each one is a finding with status `unmarked`. When generating, put every number the data supports inside `%[field]{value}`; a number that the store cannot support should not appear as a number at all.
+
 ## Boundary semantics
 
 The core verifier checks what is inside markup. Plain prose outside markup is left untouched and receives no verification status.
@@ -219,6 +228,8 @@ This performance was extremely safe.
 ```
 
 In that example, the entity and fact are inside the ProveML boundary. `extremely safe` remains unchecked prose unless wrapped in an inference.
+
+Constructs inside fenced code blocks, code spans, or preceded by a backslash (`\@[...]`) are not claims. The standalone verifier and the markdown-it plugin agree on this.
 
 ## Good patterns
 

@@ -34,12 +34,10 @@ let passed = 0, failed = 0, total = 0;
 function test(name, input, expectedDetections) {
   total++;
   const v = render(input);
-  const mismatches = v.facts.filter(f => f.status === 'mismatch').length
-    + v.entities.filter(e => !e.nameMatch).length;
-  const noContext = v.facts.filter(f => f.status === 'no-context').length;
-  const unverifiable = v.facts.filter(f => f.status === 'unverifiable').length;
-  const failedInferences = (v.inferences || []).filter(i => i.status === 'failed').length;
-  const detected = mismatches + noContext + unverifiable + failedInferences;
+  // Anything that is not verified counts as a detection. The status strings
+  // are the verifier's vocabulary (core.js); inferences land in v.facts.
+  const detected = v.entities.filter(e => e.status !== 'verified').length
+    + v.facts.filter(f => f.status !== 'verified').length;
 
   if (detected >= expectedDetections) {
     passed++;

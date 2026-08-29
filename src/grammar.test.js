@@ -90,9 +90,14 @@ assert('NOT accepted', acceptsSyntax('@[student:100]{Ylan} ?[a: IS_STRONG]{a} ?[
 
 console.log('\n=== Grammar: threshold_name validity is semantic ===');
 assert('uppercase + underscore accepted', acceptsSyntax('@[student:100]{Ylan} ?[x: IS_LOW_PASS]{test}', 2));
-assert('digits in threshold name tokenize but fail evaluation', () => {
+assert('digits in threshold name are addressable; unregistered name is an unknown threshold', () => {
     const r = parse('@[student:100]{Ylan} ?[x: RISK_2]{test}');
-    return syntaxCount('@[student:100]{Ylan} ?[x: RISK_2]{test}') === 2 && r.errors.length > 0;
+    return syntaxCount('@[student:100]{Ylan} ?[x: RISK_2]{test}') === 2
+        && r.errors.some(e => e.includes('Unknown threshold: RISK_2'));
+});
+assert('threshold name may not start with a digit', () => {
+    const r = parse('@[student:100]{Ylan} ?[x: 2RISK]{test}');
+    return r.errors.some(e => e.includes('Unknown condition: 2RISK'));
 });
 
 // ── Field segments: meta_field with underscore prefix ──

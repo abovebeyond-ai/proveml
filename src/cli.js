@@ -46,7 +46,10 @@ async function runVerify(argv) {
     const args = parseArgs(argv);
     const markup = await resolveInput(args);
     const factStore = resolveFactStore(args);
-    const result = verifyProveml(markup, factStore, args.snapshot ? { snapshot: args.snapshot } : undefined);
+    const result = verifyProveml(markup, factStore, {
+        ...(args.snapshot ? { snapshot: args.snapshot } : {}),
+        ...(args.strict ? { strict: true } : {}),
+    });
 
     if (args.json) {
         stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -395,13 +398,14 @@ Usage:
   npx proveml demo
   npx proveml strip --input report.md [--output plain.md]
   npx proveml doctor --facts facts.json [--json]
-  npx proveml verify --input report.md --facts facts.json [--json] [--snapshot id]
+  npx proveml verify --input report.md --facts facts.json [--json] [--snapshot id] [--strict]
   npx proveml render --input report.md --facts facts.json [--proof-paths] [--css] [--output out.html]
   npx proveml example [verifyCorrect|verifySuggestions|verifyErrors] [--json]
 
 Notes:
   - demo needs no setup: it shows a checked report end to end.
   - verify prints the text with markers underneath; add --paths for store paths.
+  - verify always reports coverage (numbers outside any claim); --strict makes each one a finding.
   - strip removes ProveML syntax and keeps the visible text content.
   - doctor checks fact-store shape, key hygiene, unit companions, and missing .name fields.
   - Use --text "..." instead of --input for small snippets.

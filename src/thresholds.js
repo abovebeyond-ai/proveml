@@ -5,6 +5,13 @@
  * Every threshold check in an inference chain must reference this registry.
  */
 
+/**
+ * What a threshold may be called. The condition grammar reads a name as
+ * uppercase letters, digits and underscores starting with a letter; a registry
+ * key outside that shape is a threshold nobody can ever reference.
+ */
+export const THRESHOLD_NAME = /^[A-Z][A-Z0-9_]*$/;
+
 export const thresholds = {
     // Pass/fail thresholds (from platform business logic)
     IS_LOW_PASS: { field: 'passRate', op: '<', value: 25, label: 'critically low pass rate', source: 'mastery-calculation.md' },
@@ -27,6 +34,7 @@ export const thresholds = {
     // Unit-aware thresholds (finance/healthcare examples)
     IS_NEGATIVE_BALANCE: { field: 'balance', op: '<', value: 0, unit: 'EUR', label: 'negative balance', source: 'finance-rules.md' },
     IS_ELEVATED_GLUCOSE: { field: 'glucose', op: '>', value: 126, unit: 'mg/dL', label: 'elevated glucose', source: 'clinical-ranges.md' },
+    IS_PROFITABLE: { field: 'netIncome', op: '>', value: 0, unit: 'USD', label: 'profitable', source: 'finance-rules.md' },
     IS_MISSING: { field: 'evaluated', op: 'is_null', label: 'no data', source: 'data-quality.md' },
     IS_MUCH_HIGHER: { field: '_diff', op: 'diff_gt', value: 15, label: 'much higher', source: 'offering-comparison.md' },
 

@@ -642,5 +642,128 @@ console.log('\n=== Soundness: a scope restores the context in force when it open
         fact.status === 'no-context', JSON.stringify(fact));
 }
 
+
+console.log('\n=== Soundness: the plugin restores scope like the verifier ===');
+{
+    // Same document, same verdict: both entry points judge through core.js.
+    const store = { 'facility:7.name': 'Plant North', 'sensor:42.name': 'Sensor X', 'sensor:42.value': 5, 'facility:7.value': 9 };
+    const src = '@[facility:7 "Plant North"]{contains @[sensor:42]{Sensor X}} and later %[value]{5}.';
+    const { v } = render(src, store);
+    const fact = v.facts.find(f => f.field === 'value');
+    assert('plugin: fact after a closed top-level scope has no entity context',
+        fact?.status === 'no-context', JSON.stringify(fact));
+    const src2 = '@[student:100 "Ylan Vercruysse"]{scored %[passRate]{5}%}. Then %[evaluated]{55}.';
+    const r2 = verifyProveml(src2, factStore);
+    const { v: v2 } = render(src2);
+    assert('verifier and plugin agree on a fact after a top-level scope',
+        r2.details[2].status === 'no-context' && v2.facts[1].status === 'no-context',
+        JSON.stringify([r2.details[2].status, v2.facts[1].status]));
+}
+
+console.log('\n=== Markdown: code spans, fences and escapes are not constructs ===');
+{
+    const src = [
+        'Use `%[passRate]{5}` like this. \\@[student:100]{Ylan Vercruysse} scores %[passRate]{5}%.',
+        '',
+        '```',
+        '@[student:100]{Ylan Vercruysse} %[passRate]{5}',
+        '```',
+        '',
+        '@[student:100]{Ylan Vercruysse} has %[absent]{62} absences.',
+    ].join('\n');
+    const r = verifyProveml(src, factStore);
+    const { v } = render(src);
+    assert('verifier skips code span, escape and fence', r.total === 3, `total ${r.total}: ${JSON.stringify(r.details.map(d => d.pos))}`);
+    assert('plugin counts the same constructs', v.total === r.total, `plugin ${v.total} vs verifier ${r.total}`);
+    assert('stripProveml keeps the code span verbatim', stripProveml(src).includes('`%[passRate]{5}`'));
+    assert('an unmatched backtick is literal', verifyProveml('a ` b @[student:100]{Ylan Vercruysse}', factStore).total === 1);
+    assert('tilde fence is skipped too', verifyProveml('~~~\n%[passRate]{5}\n~~~\n', factStore).total === 0);
+}
+
+console.log('\n=== annotate: claims inside a scoped entity stay visible ===');
+{
+    const md = '@[account:901 "Acme Corp"]{reported %[balance]{-12400 EUR} and %[balance]{-1 EUR}}.';
+    const r = verifyProveml(md, factStore);
+    const out = annotate(md, r, { color: false });
+    assert('scoped content is what the reader sees', out.includes('reported -12400 EUR and -1 EUR.'), out);
+    assert('the failed inner claim is labelled', out.includes('expected -12400 EUR'), out);
+    assert('the summary counts all three claims', out.includes('2/3 claims verified'), out);
+    const bad = '@[account:999 "Nobody"]{owes %[balance]{1 EUR}}.';
+    const out2 = annotate(bad, verifyProveml(bad, factStore), { color: false });
+    assert('a scoped entity that is not in the store gets a label line', out2.includes('account:999 not in store'), out2);
+    // The visible text equals what stripProveml produces, for every paper example
+    const { paperExampleSources } = await import('./paper-examples.js');
+    for (const [name, src] of Object.entries(paperExampleSources)) {
+        const first = annotate(src, verifyProveml(src, factStore), { color: false }).split('\n')[0].slice(2);
+        assert(`annotate line 1 matches stripProveml for ${name}`, stripProveml(src).split('\n')[0] === first, first);
+    }
+}
+
+console.log('\n=== Soundness: an explicit path may pick the entity, not the field ===');
+{
+    const r = verifyProveml('@[student:100]{Ylan Vercruysse} ?[x: IS_STRONG(student:100.absent)]{strong}', factStore);
+    const d = r.details[1];
+    assert('threshold redirected to another field is unverifiable', d.status === 'unverifiable' && /defined on passRate/.test(d.error), JSON.stringify(d));
+    const ok = verifyProveml('?[x: IS_STRONG(student:200.passRate)]{strong}', { 'student:200.passRate': 80 });
+    assert('explicit path on the declared field still evaluates', ok.details[0].status === 'failed' || ok.details[0].status === 'verified', JSON.stringify(ok.details[0]));
+    assert('explicit path to the declared field verifies when true', ok.verified === 1, JSON.stringify(ok));
+}
+
+console.log('\n=== Registry: names must be addressable ===');
+{
+    const reg = { IS_ABOVE_30: { field: 'passRate', op: 'gt', value: 30 } };
+    const r = verifyProveml('@[student:100]{Ylan Vercruysse} ?[x: IS_ABOVE_30]{above}', { 'student:100.name': 'Ylan Vercruysse', 'student:100.passRate': 45 }, { thresholds: reg });
+    assert('a threshold name with digits evaluates', r.verified === 2, JSON.stringify(r.errors));
+    let threw = null;
+    try { verifyProveml('x', {}, { thresholds: { is_low: { field: 'a', op: 'lt', value: 1 } } }); } catch (e) { threw = e.message; }
+    assert('a lowercase registry key throws instead of being silently unreachable', /not addressable/.test(threw || ''), threw);
+    try { threw = null; verifyProveml('x', {}, { thresholds: { IS_LOW: { op: 'lt', value: 1 } } }); } catch (e) { threw = e.message; }
+    assert('a threshold without a field throws', /must declare a field/.test(threw || ''), threw);
+}
+
+console.log('\n=== Built-in registry: README example verifies ===');
+{
+    const store = { 'company:aapl.name': 'Apple Inc.', 'company:aapl.netIncome': 112010000000, 'company:aapl.netIncome._unit': 'USD' };
+    const r = verifyProveml('@[company:aapl]{Apple Inc.} ?[healthy: IS_PROFITABLE]{The margin is healthy}.', store);
+    assert('IS_PROFITABLE is in the shipped vocabulary', r.verified === 2, JSON.stringify(r.errors));
+}
+
+
+console.log('\n=== Coverage: numbers outside any claim ===');
+{
+    const store = { 'student:100.name': 'Ylan', 'student:100.passRate': 5, 'student:100.absent': 62 };
+    const md = '@[student:100]{Ylan} scores %[passRate]{5}% and missed 62 days in 2024; see item 3.\n1. first\n`code 99` @[student:100 "Ylan"]{has 7 pets}';
+    const r = verifyProveml(md, store);
+    assert('coverage reported without strict', r.coverage.marked === 1 && r.coverage.unmarked === 3 && r.coverage.rate === 0.25, JSON.stringify(r.coverage));
+    assert('unmarked numbers carry offsets', r.unmarked.map(u => u.value).join(',') === '62,3,7', JSON.stringify(r.unmarked));
+    assert('years, list markers and code are not counted', !r.unmarked.some(u => ['2024', '1', '99'].includes(u.value)));
+    assert('without strict, unmarked numbers are not errors', r.errors.length === 0 && r.total === 3, JSON.stringify(r.errors));
+    const s = verifyProveml(md, store, { strict: true });
+    assert('strict: each unmarked number is a finding', s.errors.length === 3 && s.details.filter(d => d.type === 'unmarked').length === 3, JSON.stringify(s.errors));
+    assert('strict: totals still count claims only', s.total === 3 && s.verified === 3);
+    assert('strict: details stay in source order', s.details.every((d, i, a) => i === 0 || a[i - 1].pos <= d.pos));
+    const out = annotate(md, s, { color: false });
+    assert('annotate labels an unmarked number', out.includes('· not a claim'), out);
+    assert('annotate summary reports coverage', out.includes('3/3 claims verified, 3 numbers outside any claim'), out);
+    const clean = verifyProveml('@[student:100]{Ylan} scores %[passRate]{5}%.', store, { strict: true });
+    assert('fully marked text has no coverage findings', clean.errors.length === 0 && clean.coverage.rate === 1, JSON.stringify(clean.coverage));
+    assert('no numbers at all gives rate null', verifyProveml('@[student:100]{Ylan} is here.', store).coverage.rate === null);
+}
+
+
+console.log('\n=== Facts may name their own entity ===');
+{
+    const store = { 'student:20414.name': 'Amir Janssens', 'student:20414.passRate': 53, 'offering:10056.name': '5OL', 'offering:10056.passRate': 61 };
+    const md = '@[student:20414]{Amir Janssens} of @[offering:10056]{5OL} has a pass rate of %[student:20414.passRate]{53}%; the class sits at %[passRate]{61}%.';
+    const r = verifyProveml(md, store);
+    assert('explicit-entity fact binds to the named entity, not the nearest', r.details[2].status === 'verified' && r.details[2].path === 'student:20414.passRate', JSON.stringify(r.details[2]));
+    assert('the following plain fact still binds to the entity in force', r.details[3].status === 'verified' && r.details[3].path === 'offering:10056.passRate', JSON.stringify(r.details[3]));
+    assert('explicit-entity fact needs no context', verifyProveml('%[student:20414.passRate]{53}', store).details[0].status === 'verified');
+    assert('explicit-entity fact to an unknown field is field-not-found', verifyProveml('%[student:20414.absent]{3}', store).details[0].status === 'field-not-found');
+    const { v } = render(md, store);
+    assert('plugin agrees', v.facts[0].status === 'verified' && v.facts[0].path === 'student:20414.passRate' && v.facts[1].path === 'offering:10056.passRate', JSON.stringify(v.facts.map(f => f.path)));
+    assert('stripProveml unchanged', stripProveml(md) === 'Amir Janssens of 5OL has a pass rate of 53%; the class sits at 61%.');
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

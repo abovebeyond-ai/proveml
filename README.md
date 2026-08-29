@@ -42,6 +42,7 @@ npx proveml verify --input report.md --facts facts.json
 |---|---|---|
 | `@[type:id]{Name}` | this text refers to that record | name equality against `type:id.name` |
 | `%[field]{value}` | this value is that field | string equality against `type:id.field` |
+| `%[type:id.field]{value}` | same, naming the record itself | for sentences where the subject is not the nearest entity |
 | `?[label: THRESHOLD]{text}` | this judgment holds | arithmetic against a registered threshold |
 
 Anything outside a construct is ordinary prose and is never claimed to be
@@ -61,12 +62,35 @@ IS_LOW_PASS: { field: 'passRate', op: 'lt', value: 25, label: 'critically low' }
 The model may use `?[low: IS_LOW_PASS]{critically low}` and nothing else. It
 cannot invent the magnitude, the direction, or the cutoff.
 
+## Coverage: what is not a claim
+
+A verification rate counts only what is inside markup, so a report that marks
+up one number and leaves nine in plain prose would score 100%. The verifier
+therefore also reports **coverage**: every standalone number in the prose that
+no construct covers.
+
+```
+  Ylan scores 5% and missed 62 days.
+  ────        ─           ┄┄
+                          · not a claim
+
+  2/2 claims verified, 1 number outside any claim
+```
+
+`verifyProveml` always returns `coverage` and `unmarked`; with `{ strict: true }`
+(CLI: `--strict`) each unmarked number is a finding. Years, list markers and
+numbers inside code are not counted.
+
 ## What it does not do
 
 - It verifies **consistency with your data**, not truth. Wrong data, wrong verified claims.
 - It checks what is **inside** markup. Prose outside is unchecked, by design.
 - Values must match exactly: `18.5`, not `18.50` and not "about 18".
 - Derived values (differences, counts) need to exist in the store to be claimable.
+- If the store carries a unit (`revenue._unit`), the claim must carry it too: `%[revenue]{416161000000 USD}`.
+- `THRESHOLD(path)` may point at another entity, never at another field: `IS_STRONG(student:100.absent)` is unverifiable, because the registry decides which field a judgment is about.
+- Constructs inside fenced code blocks, code spans, or preceded by a backslash are not claims. The verifier and the markdown-it plugin agree on this; both judge through the same core.
+- Threshold names are uppercase letters, digits and underscores starting with a letter (`IS_ABOVE_30`). A registry key outside that shape throws at load instead of sitting there unreachable.
 
 ## Fact-store format
 

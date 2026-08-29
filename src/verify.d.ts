@@ -1,6 +1,7 @@
 import type {
   FactSource,
   ProveMLToken,
+  UnmarkedNumber,
   VerificationResult,
   VerifyProvemlOptions,
 } from './types';
@@ -13,7 +14,9 @@ export function verifyProveml(
 
 export function stripProveml(markdown: string): string;
 
-export function tokenizeProveml(src: string, baseOffset?: number): ProveMLToken[];
+export function unmarkedNumbers(markdown: string): UnmarkedNumber[];
+
+export function tokenizeProveml(src: string, baseOffset?: number, skipped?: { pos: number; end: number }[]): ProveMLToken[];
 
 export type {
   EntityToken,
@@ -30,6 +33,9 @@ export type {
   TrustMetadata,
   TrustMetadataFields,
   TrustStatus,
+  UnmarkedNumber,
+  UnmarkedNumberDetail,
+  Coverage,
   VerificationDetail,
   VerificationResult,
   VerifyProvemlOptions,

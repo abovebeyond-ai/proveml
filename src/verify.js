@@ -1,61 +1,31 @@
 /**
  * ProveML Standalone Verifier
  *
- * Single authoritative verification implementation. Used by:
- *   - server.js (API runtime)
- *   - generate-reports.js (batch generation)
- *   - skills-server.js (MCP tools)
- *   - plugin.js (markdown-it rendering — delegates to this for verification logic)
+ * The normative entry point: `verifyProveml(markdown, store, options)`. It
+ * tokenizes the raw text and judges every construct through `core.js`, which
+ * the markdown-it plugin shares, so the two cannot disagree on a claim.
  *
  * Supports: simple entities, scoped entities, nested scope, linear carry-forward,
  * facts, inferences with threshold evaluation and AND/OR/NOT.
+ *
+ * The tokenizer knows three things about Markdown, no more: fenced code blocks,
+ * code spans and backslash escapes are not constructs. The host parser skips
+ * those, so the verifier must too, or a fenced example in a report would change
+ * its own verification count.
  */
 
-import { evaluateThreshold, thresholds } from './thresholds.js';
-import {
-    getExpectedSurfaceValue,
-    getTrustFields,
-    toTrustAdapter
-} from './trust-adapter.js';
-
-const TRUST_STATUS_PRIORITY = {
-    verified: 0,
-    unverified: 1,
-    expired: 2,
-    revoked: 3,
-    error: 4
-};
-
-function mergeTrustFields(results) {
-    const trustResults = results.filter(result => result?.trustStatus);
-    if (trustResults.length === 0) return {};
-
-    const chosen = trustResults.reduce((worst, current) => {
-        const currentPriority = TRUST_STATUS_PRIORITY[current.trustStatus] ?? -1;
-        const worstPriority = TRUST_STATUS_PRIORITY[worst.trustStatus] ?? -1;
-        return currentPriority > worstPriority ? current : worst;
-    });
-
-    const uniqueBackends = [...new Set(trustResults.map(result => result.trustBackend).filter(Boolean))];
-    const merged = {
-        trustStatus: chosen.trustStatus,
-        ...(uniqueBackends.length === 1 ? { trustBackend: uniqueBackends[0] } : {})
-    };
-
-    if (trustResults.length === 1) {
-        if (chosen.trustProofRef) merged.trustProofRef = chosen.trustProofRef;
-        if (chosen.trustIssuer) merged.trustIssuer = chosen.trustIssuer;
-        if (chosen.trustCheckedAt) merged.trustCheckedAt = chosen.trustCheckedAt;
-    }
-
-    return merged;
-}
+import { thresholds } from './thresholds.js';
+import { toTrustAdapter } from './trust-adapter.js';
+import { assertRegistry, checkEntity, checkFact, evaluateCondition, mergeTrustFields } from './core.js';
 
 /**
  * Verify all ProveML constructs in a markdown string.
  * @param {string} markdown - Raw ProveML-annotated markdown
  * @param {object} factStoreOrAdapter - Flat key-value store or trust adapter
- * @param {object} [options] - Optional: { snapshot: string, thresholds: object }
+ * @param {object} [options] - Optional: { snapshot: string, thresholds: object, strict: boolean }
+ *   options.strict: a number in the prose that no construct covers is a
+ *   finding (status 'unmarked'), not just a count. Without it, verification
+ *   only judges what is inside markup; coverage is still reported.
  *   options.thresholds replaces the built-in registry for this verification:
  *   a domain defines its own vocabulary, and the built-in example thresholds
  *   (education, finance, health) stop being part of the allowed language.
@@ -64,66 +34,42 @@ function mergeTrustFields(results) {
  */
 export function verifyProveml(markdown, factStoreOrAdapter, options) {
     const adapter = toTrustAdapter(factStoreOrAdapter);
-    const registry = options?.thresholds || thresholds;
+    const registry = assertRegistry(options?.thresholds || thresholds);
     const results = { total: 0, verified: 0, errors: [], details: [] };
     if (options?.snapshot) results.snapshot = options.snapshot;
     const inferLabels = {};
 
-    // Tokenize: extract all ProveML constructs with positions
     const tokens = tokenizeProveml(markdown);
 
-    // Build scope tree and resolve entity bindings
-    let entityStack = [];
+    // Scope: a stack of the contexts in force when each scope opened
+    const entityStack = [];
     let currentEntity = null;
 
     for (const tok of tokens) {
+        const span = { pos: tok.pos, end: tok.end };
+
         if (tok.type === 'entity') {
             const path = `${tok.entityType}:${tok.entityId}`;
-            const nameResolution = adapter.resolve(`${path}.name`);
-            const nameInStore = nameResolution.value;
-            const nameMatch = nameResolution.found && String(nameInStore) === String(tok.name);
+            const check = checkEntity(adapter, path, tok.name);
 
             results.total++;
-            if (nameMatch) {
+            if (check.status === 'verified') {
                 results.verified++;
-                results.details.push({
-                    type: 'entity',
-                    path,
-                    name: tok.name,
-                    status: 'verified',
-                    pos: tok.pos, end: tok.end,
-                    ...getTrustFields(nameResolution)
-                });
-            } else if (!nameResolution.found) {
-                const msg = `@[${path}]: not found`;
-                results.errors.push(msg);
-                results.details.push({ type: 'entity', path, name: tok.name, status: 'entity-not-found', errorClass: 'reference', pos: tok.pos, end: tok.end });
+            } else if (check.status === 'entity-not-found') {
+                results.errors.push(`@[${path}]: not found`);
             } else {
-                const msg = `@[${path}]{${tok.name}}: name is "${nameInStore}"`;
-                results.errors.push(msg);
-                results.details.push({
-                    type: 'entity',
-                    path,
-                    name: tok.name,
-                    status: 'name-mismatch',
-                    pos: tok.pos, end: tok.end,
-                    expected: nameInStore,
-                    errorClass: 'reference',
-                    ...getTrustFields(nameResolution)
-                });
+                results.errors.push(`@[${path}]{${tok.name}}: name is "${check.expected}"`);
             }
+            results.details.push({ type: 'entity', path, name: tok.name, ...check, ...span });
 
             if (tok.scoped) {
-                // Push current onto stack (null included: "no context" is also
-                // a context, and it must be restored when the scope closes —
-                // otherwise an entity from inside a top-level scope leaks out
-                // of it and later facts bind to the wrong entity)
+                // Push the current context, null included: "no context" is also
+                // a context, and it must be restored when the scope closes.
+                // Otherwise an entity from inside a top-level scope leaks out
+                // of it and later facts bind to the wrong entity.
                 entityStack.push(currentEntity);
-                currentEntity = path;
-            } else {
-                // Simple form: linear carry-forward
-                currentEntity = path;
             }
+            currentEntity = path;
         } else if (tok.type === 'entity_close') {
             // Scope closes: restore whatever was in force when it opened.
             // An unmatched close (malformed input) leaves the context alone.
@@ -132,42 +78,23 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
             }
         } else if (tok.type === 'fact') {
             results.total++;
-            if (!currentEntity) {
-                results.errors.push(`%[${tok.field}]{${tok.value}}: no entity context`);
-                results.details.push({ type: 'fact', field: tok.field, value: tok.value, status: 'no-context', errorClass: 'context', pos: tok.pos, end: tok.end });
-                continue;
-            }
-            const storePath = `${currentEntity}.${tok.field}`;
-            const resolution = adapter.resolve(storePath);
-            const expected = getExpectedSurfaceValue(resolution);
-            if (resolution.found && String(tok.value) === String(expected)) {
+            const check = checkFact(adapter, currentEntity, tok.field, tok.value);
+            if (check.status === 'verified') {
                 results.verified++;
-                results.details.push({
-                    type: 'fact',
-                    path: storePath,
-                    value: tok.value,
-                    status: 'verified',
-                    pos: tok.pos, end: tok.end,
-                    ...getTrustFields(resolution)
-                });
-            } else if (!resolution.found) {
-                const msg = `%[${tok.field}]{${tok.value}} in ${currentEntity}: field not found`;
-                results.errors.push(msg);
-                results.details.push({ type: 'fact', path: storePath, value: tok.value, status: 'field-not-found', errorClass: 'reference', pos: tok.pos, end: tok.end });
+            } else if (check.status === 'no-context') {
+                results.errors.push(`%[${tok.field}]{${tok.value}}: no entity context`);
+            } else if (check.status === 'field-not-found') {
+                results.errors.push(`%[${tok.field}]{${tok.value}} in ${currentEntity}: field not found`);
             } else {
-                const msg = `%[${tok.field}]{${tok.value}} in ${currentEntity}: should be ${expected}`;
-                results.errors.push(msg);
-                results.details.push({
-                    type: 'fact',
-                    path: storePath,
-                    value: tok.value,
-                    status: 'value-mismatch',
-                    pos: tok.pos, end: tok.end,
-                    expected,
-                    errorClass: 'value',
-                    ...getTrustFields(resolution)
-                });
+                results.errors.push(`%[${tok.field}]{${tok.value}} in ${currentEntity}: should be ${check.expected}`);
             }
+            results.details.push({
+                type: 'fact',
+                ...(check.status === 'no-context' ? { field: tok.field } : {}),
+                value: tok.value,
+                ...check,
+                ...span
+            });
         } else if (tok.type === 'inference') {
             results.total++;
             const result = evaluateCondition(tok.condition, currentEntity, adapter, inferLabels, registry);
@@ -178,21 +105,20 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
                     type: 'inference',
                     label: tok.label,
                     status: 'verified',
-                    pos: tok.pos, end: tok.end,
+                    ...span,
                     ...mergeTrustFields([result])
                 });
             } else {
-                const msg = `?[${tok.label}: ${tok.condition}]: ${result.error || 'condition false'}`;
-                results.errors.push(msg);
+                results.errors.push(`?[${tok.label}: ${tok.condition}]: ${result.error || 'condition false'}`);
                 results.details.push({
                     type: 'inference',
                     label: tok.label,
                     // unknown = could not be resolved (unregistered threshold,
                     // missing operand); distinct from a condition that resolved
                     // to false. Renderers show unknown as unverifiable, false
-                    // as mismatch.
+                    // as failed.
                     status: result.unknown ? 'unverifiable' : 'failed',
-                    pos: tok.pos, end: tok.end,
+                    ...span,
                     error: result.error,
                     ...(result.unknown ? { unknown: true } : {}),
                     ...mergeTrustFields([result])
@@ -201,7 +127,71 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
         }
     }
 
+    // Coverage: how much of the numeric content is inside a claim at all.
+    // Reported always; in strict mode an unmarked number is also a finding.
+    const unmarked = unmarkedNumbers(markdown);
+    const marked = tokens.filter(t => t.type === 'fact' && /\d/.test(t.value)).length;
+    results.unmarked = unmarked;
+    results.coverage = {
+        marked,
+        unmarked: unmarked.length,
+        rate: marked + unmarked.length === 0 ? null : marked / (marked + unmarked.length)
+    };
+    if (options?.strict) {
+        for (const u of unmarked) {
+            results.errors.push(`${u.value} in prose is not a claim`);
+            results.details.push({ type: 'unmarked', value: u.value, status: 'unmarked', errorClass: 'coverage', pos: u.pos, end: u.end });
+        }
+        results.details.sort((a, b) => a.pos - b.pos);
+    }
+
     return results;
+}
+
+/**
+ * Numbers in the prose that no construct covers.
+ *
+ * The verification rate counts claims inside markup, so a response that marks
+ * up one number and leaves nine in plain prose scores 100%. Coverage is the
+ * complementary measure, and this is its definition, shared with the paper's
+ * coverage audit so both count the same thing:
+ *
+ *   a standalone numeric token (digits, optional . or , groups) outside every
+ *   construct and every code span, that is not a list marker at line start,
+ *   not a bare year 1900-2099, and not a fiscal form (FY2025, Q1 2026).
+ *
+ * Digits inside words (3BS, h1, FY2025) are identifiers, not claims. Prose
+ * inside a scoped entity's braces is prose and is scanned.
+ *
+ * @returns {{ value: string, pos: number, end: number }[]}
+ */
+export function unmarkedNumbers(markdown) {
+    const skipped = [];
+    const tokens = tokenizeProveml(markdown, 0, skipped);
+    const covered = [...skipped];
+    for (const t of tokens) {
+        if (t.type === 'entity' && t.scoped) {
+            covered.push({ pos: t.pos, end: t.end - t.content.length - 1 }); // header up to the brace
+            covered.push({ pos: t.end - 1, end: t.end });                   // the closing brace
+        } else if (t.type !== 'entity_close') {
+            covered.push({ pos: t.pos, end: t.end });
+        }
+    }
+    covered.sort((a, b) => a.pos - b.pos);
+
+    // Blank out covered ranges (same length, so offsets stay valid), then the
+    // exclusions, then scan what is left.
+    let prose = markdown;
+    const blank = (from, to) => { prose = prose.slice(0, from) + ' '.repeat(to - from) + prose.slice(to); };
+    for (const c of covered) blank(c.pos, c.end);
+    for (const re of [/^[ \t]*\d+[.)][ \t]/gm, /\bFY ?(?:19|20)\d{2}\b/g, /\bQ[1-4] ?(?:19|20)\d{2}\b/g, /\b(?:19|20)\d{2}\b/g]) {
+        for (const m of prose.matchAll(re)) blank(m.index, m.index + m[0].length);
+    }
+    const out = [];
+    for (const m of prose.matchAll(/(?<![A-Za-z0-9.,])\d+(?:[.,]\d+)*(?![A-Za-z0-9])/g)) {
+        out.push({ value: m[0], pos: m.index, end: m.index + m[0].length });
+    }
+    return out;
 }
 
 /**
@@ -235,14 +225,75 @@ export function stripProveml(markdown) {
 }
 
 /**
+ * Where a construct cannot start. Returns the position to resume scanning at,
+ * or -1 if `pos` is ordinary text.
+ *
+ * - `\x` escapes the next character (CommonMark escapes any punctuation).
+ * - A fenced code block (three or more backticks or tildes at the start of a
+ *   line, at most three spaces in) runs to the matching closing fence.
+ * - A code span (a run of n backticks) runs to the next run of exactly n.
+ */
+function codeSkip(src, pos) {
+    const ch = src[pos];
+    if (ch === '\\') return Math.min(pos + 2, src.length);
+    if (ch !== '`' && ch !== '~') return -1;
+
+    let run = pos;
+    while (src[run] === ch) run++;
+    const n = run - pos;
+
+    const lineStart = src.lastIndexOf('\n', pos - 1) + 1;
+    const atLineStart = /^ {0,3}$/.test(src.slice(lineStart, pos));
+    if (atLineStart && n >= 3) {
+        const closing = new RegExp(`^ {0,3}[${ch}]{${n},}[ \\t]*$`);
+        let lineEnd = src.indexOf('\n', run);
+        if (lineEnd === -1) return src.length;
+        let p = lineEnd + 1;
+        while (p < src.length) {
+            const nl = src.indexOf('\n', p);
+            const line = src.slice(p, nl === -1 ? src.length : nl);
+            if (closing.test(line)) return nl === -1 ? src.length : nl + 1;
+            if (nl === -1) break;
+            p = nl + 1;
+        }
+        return src.length;
+    }
+
+    if (ch === '`') {
+        let p = run;
+        while (p < src.length) {
+            const q = src.indexOf('`', p);
+            if (q === -1) break;
+            let r = q;
+            while (src[r] === '`') r++;
+            if (r - q === n) return r;
+            p = r;
+        }
+        return run; // unmatched: literal backticks
+    }
+
+    return -1;
+}
+
+/**
  * Tokenize ProveML constructs from raw markdown.
  * Uses brace-depth counting for scoped entities.
+ * @param {Array} [skipped]  if given, receives the {pos,end} ranges the
+ *   tokenizer passed over as code or escapes, so a caller can tell prose
+ *   from code without re-parsing.
  */
-export function tokenizeProveml(src, baseOffset = 0) {
+export function tokenizeProveml(src, baseOffset = 0, skipped = null) {
     const tokens = [];
     let pos = 0;
 
     while (pos < src.length) {
+        const skip = codeSkip(src, pos);
+        if (skip !== -1) {
+            if (skipped) skipped.push({ pos: baseOffset + pos, end: baseOffset + skip });
+            pos = skip;
+            continue;
+        }
+
         // Entity: @[type:id]{...} or @[type:id "name"]{...}
         if (src[pos] === '@' && src[pos + 1] === '[') {
             const bracketClose = src.indexOf(']', pos + 2);
@@ -287,7 +338,7 @@ export function tokenizeProveml(src, baseOffset = 0) {
 
             if (scoped) {
                 // Recursively tokenize the content inside braces
-                const innerTokens = tokenizeProveml(content, baseOffset + braceOpen + 1);
+                const innerTokens = tokenizeProveml(content, baseOffset + braceOpen + 1, skipped);
                 tokens.push(...innerTokens);
                 tokens.push({ type: 'entity_close', pos: baseOffset + braceClose, end: baseOffset + braceClose + 1 });
             }
@@ -335,140 +386,4 @@ export function tokenizeProveml(src, baseOffset = 0) {
     }
 
     return tokens;
-}
-
-/**
- * Evaluate an inference condition against the fact store and threshold registry.
- *
- * Evaluation is three-valued. A condition that cannot be resolved — an unknown
- * threshold, a missing operand, a label that was never defined — is UNKNOWN, not
- * false. The distinction matters at exactly one place: NOT. Treating unresolvable
- * as false let `NOT @nonexistent` come back verified, which would report a claim
- * as proven on the strength of a threshold nobody defined.
- */
-function evaluateCondition(condition, entityPath, adapter, labels, registry = thresholds) {
-    condition = condition.trim();
-
-    // OR (lower precedence — checked first). True beats unknown; otherwise an
-    // unresolvable operand makes the whole disjunction unresolvable.
-    if (condition.includes(' OR ')) {
-        const parts = condition.split(' OR ').map(p => p.trim());
-        const results = parts.map(p => evaluateCondition(p, entityPath, adapter, labels, registry));
-        const unknown = results.some(r => r.unknown) && !results.some(r => r.verified);
-        return {
-            verified: !unknown && results.some(r => r.verified),
-            ...(unknown ? { unknown: true, error: results.find(r => r.unknown).error } : {}),
-            explanation: results.map(r => r.explanation || r.error).join(' ∨ '),
-            ...mergeTrustFields(results)
-        };
-    }
-
-    // AND (higher precedence). False beats unknown; otherwise unknown wins.
-    if (condition.includes(' AND ')) {
-        const parts = condition.split(' AND ').map(p => p.trim());
-        const results = parts.map(p => evaluateCondition(p, entityPath, adapter, labels, registry));
-        const decidedFalse = results.some(r => !r.verified && !r.unknown);
-        const unknown = !decidedFalse && results.some(r => r.unknown);
-        return {
-            verified: !unknown && results.every(r => r.verified),
-            ...(unknown ? { unknown: true, error: results.find(r => r.unknown).error } : {}),
-            explanation: results.map(r => r.explanation || r.error).join(' ∧ '),
-            ...mergeTrustFields(results)
-        };
-    }
-
-    // NOT. Negating an unresolvable condition leaves it unresolvable.
-    if (condition.startsWith('NOT ')) {
-        const inner = evaluateCondition(condition.slice(4), entityPath, adapter, labels, registry);
-        if (inner.unknown) {
-            return { verified: false, unknown: true, error: inner.error,
-                explanation: `¬(${inner.explanation || inner.error})`, ...mergeTrustFields([inner]) };
-        }
-        return {
-            verified: !inner.verified,
-            explanation: `¬(${inner.explanation})`,
-            ...mergeTrustFields([inner])
-        };
-    }
-
-    // Label reference: @label. The reference is only as resolved as its
-    // target: if the referenced inference is unknown (unregistered threshold,
-    // missing operand), the reference is unknown too — otherwise `NOT @a`
-    // would verify on the strength of a threshold nobody defined, one
-    // indirection away from the case handled above.
-    if (condition.startsWith('@')) {
-        const refLabel = condition.slice(1);
-        const ref = labels[refLabel];
-        if (!ref) return { verified: false, unknown: true, error: `Label "${refLabel}" not found` };
-        if (ref.unknown) {
-            return {
-                verified: false, unknown: true,
-                error: ref.error || `Label "${refLabel}" is unresolved`,
-                explanation: `@${refLabel} = unknown`,
-                ...mergeTrustFields([ref])
-            };
-        }
-        return {
-            verified: ref.verified,
-            explanation: `@${refLabel} = ${ref.verified}`,
-            ...mergeTrustFields([ref])
-        };
-    }
-
-    // Threshold: NAME or NAME(path)
-    const thresholdMatch = condition.match(/^([A-Z_]+)(?:\(([^)]+)\))?$/);
-    if (thresholdMatch) {
-        const tName = thresholdMatch[1];
-        const t = registry[tName];
-        if (!t) return { verified: false, unknown: true, error: `Unknown threshold: ${tName}` };
-
-        let actualValue;
-        let fieldPath;
-        if (thresholdMatch[2]) {
-            fieldPath = thresholdMatch[2];
-            actualValue = adapter.resolve(fieldPath).value;
-        } else if (entityPath) {
-            fieldPath = `${entityPath}.${t.field}`;
-            actualValue = adapter.resolve(fieldPath).value;
-        }
-
-        // No entity context and no explicit path: nothing is addressable,
-        // so no threshold (including is_null) can evaluate.
-        if (!fieldPath) return { verified: false, unknown: true, error: `No entity context for threshold ${tName}` };
-
-        const resolution = adapter.resolve(fieldPath);
-        actualValue = resolution.value;
-
-        if (actualValue === undefined && t.op !== 'is_null') return { verified: false, unknown: true, error: `No value for ${t.field}` };
-
-        // Unit check: if threshold declares a unit, the fact store must declare a matching unit
-        if (t.unit && fieldPath) {
-            const storeUnit = resolution.unit;
-            if (storeUnit == null) {
-                return { verified: false, unknown: true, error: `Threshold expects unit ${t.unit}, but field has no unit` };
-            }
-            if (String(storeUnit) !== String(t.unit)) {
-                return { verified: false, unknown: true, error: `Unit mismatch: threshold expects ${t.unit}, data has ${storeUnit}` };
-            }
-        }
-
-        const result = evaluateThreshold(tName, actualValue, registry);
-        if (!result.valid) {
-            return { verified: false, unknown: true, error: result.error,
-                explanation: result.error, ...getTrustFields(resolution) };
-        }
-        return {
-            verified: result.result,
-            explanation: result.explanation,
-            source: result.source,
-            ...getTrustFields(resolution)
-        };
-    }
-
-    // Bare comparison: reject
-    if (/[><=!]/.test(condition)) {
-        return { verified: false, unknown: true, error: `Direct comparison not allowed: use a threshold from the registry` };
-    }
-
-    return { verified: false, unknown: true, error: `Unknown condition: ${condition}` };
 }

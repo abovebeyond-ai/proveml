@@ -36,6 +36,11 @@ export type FactSource = FactStore | TrustAdapter;
 export interface VerifyProvemlOptions {
   snapshot?: string;
   /**
+   * Treat every number in the prose that no construct covers as a finding
+   * (status 'unmarked'). Without it, coverage is reported but not judged.
+   */
+  strict?: boolean;
+  /**
    * The threshold registry for this verification. When given it REPLACES the
    * built-in example registry: a domain defines its own vocabulary, and names
    * outside it are unknown. Spread the built-in in to merge instead.
@@ -49,18 +54,25 @@ export interface ProveMLOptions {
   thresholds?: Record<string, ThresholdDefinition>;
 }
 
-export interface EntityVerificationDetail extends TrustMetadataFields {
+/** Every detail carries the source span of its construct (character offsets). */
+export interface VerificationSpan {
+  pos: number;
+  end: number;
+}
+
+export interface EntityVerificationDetail extends TrustMetadataFields, VerificationSpan {
   type: 'entity';
   path: string;
   name: string;
   status: 'verified' | 'entity-not-found' | 'name-mismatch';
-  expected?: string;
+  expected?: FactStoreValue;
   errorClass?: 'reference';
 }
 
-export interface FactVerificationDetail extends TrustMetadataFields {
+export interface FactVerificationDetail extends TrustMetadataFields, VerificationSpan {
   type: 'fact';
   path?: string;
+  /** Only present when status is 'no-context' (there is no path without an entity). */
   field?: string;
   value: string;
   status: 'verified' | 'field-not-found' | 'value-mismatch' | 'no-context';
@@ -68,24 +80,56 @@ export interface FactVerificationDetail extends TrustMetadataFields {
   errorClass?: 'reference' | 'value' | 'context';
 }
 
-export interface InferenceVerificationDetail extends TrustMetadataFields {
+export interface InferenceVerificationDetail extends TrustMetadataFields, VerificationSpan {
   type: 'inference';
   label: string;
-  status: 'verified' | 'failed';
+  /**
+   * 'failed' = the condition resolved to false; 'unverifiable' = it could not
+   * be resolved (unknown threshold, missing operand, undefined label). The
+   * two are distinct on purpose: NOT of an unresolvable condition stays
+   * unresolvable.
+   */
+  status: 'verified' | 'failed' | 'unverifiable';
+  unknown?: true;
   error?: string;
+}
+
+/** A number in the prose outside every construct; only present with `strict`. */
+export interface UnmarkedNumberDetail extends VerificationSpan {
+  type: 'unmarked';
+  value: string;
+  status: 'unmarked';
+  errorClass: 'coverage';
 }
 
 export type VerificationDetail =
   | EntityVerificationDetail
   | FactVerificationDetail
-  | InferenceVerificationDetail;
+  | InferenceVerificationDetail
+  | UnmarkedNumberDetail;
+
+export interface UnmarkedNumber extends VerificationSpan {
+  value: string;
+}
+
+export interface Coverage {
+  /** fact constructs whose value contains a digit */
+  marked: number;
+  /** standalone numbers in the prose outside every construct */
+  unmarked: number;
+  /** marked / (marked + unmarked); null when there are no numbers at all */
+  rate: number | null;
+}
 
 export interface VerificationResult {
+  /** claims inside markup (entities, facts, inferences) */
   total: number;
   verified: number;
   errors: string[];
   details: VerificationDetail[];
   snapshot?: string;
+  unmarked: UnmarkedNumber[];
+  coverage: Coverage;
 }
 
 export interface EntityToken {
