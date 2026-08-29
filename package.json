@@ -1,6 +1,6 @@
 {
   "name": "proveml",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Deterministic claim-level verification for AI-generated text with Markdown-native inline markup.",
   "type": "module",
   "types": "src/index.d.ts",
@@ -54,6 +54,7 @@
     "src/annotate.d.ts",
     "src/annotate.js",
     "src/cli.js",
+    "src/core.js",
     "src/index.d.ts",
     "src/paper-examples.d.ts",
     "src/paper-examples.js",
