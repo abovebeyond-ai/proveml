@@ -6,6 +6,8 @@ import { renderProveml, PROVEML_CSS } from './render-html.js';
 import { educationFactStore, paperExampleSources } from './paper-examples.js';
 import { stripProveml, verifyProveml } from './verify.js';
 import { annotate } from './annotate.js';
+import { promptFor } from './prompt.js';
+import { thresholds as builtinThresholds } from './thresholds.js';
 
 const [, , command = 'help', ...argv] = process.argv;
 
@@ -25,6 +27,9 @@ try {
             break;
         case 'demo':
             runDemo(argv);
+            break;
+        case 'prompt':
+            runPrompt(argv);
             break;
         case 'example':
         case 'examples':
@@ -180,6 +185,18 @@ function runDemo() {
     stdout.write(`  npx proveml verify --input report.md --facts facts.json   ${dim('check your own')}\n`);
     stdout.write(`  npx proveml doctor --facts facts.json                     ${dim('check your store shape')}\n`);
     stdout.write(`  npx proveml render --input report.md --facts facts.json   ${dim('HTML with status colors')}\n\n`);
+}
+
+/**
+ * The system prompt for a store: what a model has to be told to write ProveML
+ * that verifies. Rules are fixed; records, fields, units and the registry come
+ * from the files given.
+ */
+function runPrompt(argv) {
+    const args = parseArgs(argv);
+    const store = args.facts ? JSON.parse(readFileSync(args.facts, 'utf8')) : {};
+    const thresholds = args.thresholds ? JSON.parse(readFileSync(args.thresholds, 'utf8')) : (args['builtin-thresholds'] ? builtinThresholds : {});
+    stdout.write(`${promptFor({ store, thresholds, role: typeof args.role === 'string' ? args.role : undefined, data: Boolean(args.data) })}\n`);
 }
 
 function runExample(argv) {
@@ -415,6 +432,7 @@ Usage:
   npx proveml verify --input report.md --facts facts.json [--json] [--snapshot id] [--strict]
   npx proveml render --input report.md --facts facts.json [--proof-paths] [--css] [--output out.html]
   npx proveml example [verifyCorrect|verifySuggestions|verifyErrors] [--json]
+  npx proveml prompt --facts facts.json [--thresholds registry.json] [--role "..."] [--data]
 
 Notes:
   - demo needs no setup: it shows a checked report end to end.
@@ -425,5 +443,6 @@ Notes:
   - Use --text "..." instead of --input for small snippets.
   - If no --input or --text is given, strip/verify/render read markup from stdin.
   - render prints HTML to stdout unless --output is provided.
+  - prompt prints the system prompt a model needs for this store: the rules, the records and fields, the registry.
 `);
 }

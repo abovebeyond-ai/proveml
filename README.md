@@ -62,6 +62,19 @@ IS_LOW_PASS: { field: 'passRate', op: 'lt', value: 25, label: 'critically low' }
 The model may use `?[low: IS_LOW_PASS]{critically low}` and nothing else. It
 cannot invent the magnitude, the direction, or the cutoff.
 
+## The prompt
+
+What a model has to be told is short, and it is measured: under a prompt that only named the constructs, Claude Opus 5 verified 86% of its claims on the first pass; with the binding rule and the cutoff rule added, 100%. The package generates that prompt from your store and registry, so the field names the model sees are the ones the verifier resolves:
+
+```js
+import { promptFor } from 'proveml/prompt';
+const system = promptFor({ store, thresholds, role: 'You write monthly investor letters.' });
+```
+
+```bash
+npx proveml prompt --facts facts.json --thresholds registry.json
+```
+
 ## Coverage: what is not a claim
 
 A verification rate counts only what is inside markup, so a report that marks

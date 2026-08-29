@@ -89,6 +89,10 @@ Minimal executable example:
 @[company:msft]{Microsoft Corporation} reported total assets of %[assets]{619003000000 USD}.
 ```
 
+## The system prompt
+
+Do not write the rules yourself; generate them from the data: `promptFor({ store, thresholds, role })` from `proveml/prompt`, or `npx proveml prompt --facts facts.json --thresholds registry.json`. The rules it contains each closed a measured gap in the August 2026 study.
+
 ## Authoring workflow
 
 1. Bind an entity before writing facts.
