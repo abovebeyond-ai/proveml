@@ -100,10 +100,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ShaneDeconinck/proveml.git"
+    "url": "git+https://github.com/abovebeyond-ai/proveml.git"
   },
   "bugs": {
-    "url": "https://github.com/ShaneDeconinck/proveml/issues"
+    "url": "https://github.com/abovebeyond-ai/proveml/issues"
   },
   "homepage": "https://abovebeyond.ai/proveml/",
   "peerDependencies": {
