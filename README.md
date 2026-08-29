@@ -157,7 +157,7 @@ npx proveml verify --input report.md --facts facts.json
 This repo is currently set up primarily as a reference implementation repo.
 
 ```bash
-git clone https://github.com/ShaneDeconinck/proveml.git
+git clone https://github.com/abovebeyond-ai/proveml.git
 cd proveml
 npm install
 npm test
@@ -411,4 +411,4 @@ The paper, reference-audit workflow, benchmarks, datasets, and experiment output
 - [`docs/agent-reference.md`](docs/agent-reference.md) — reference for LLM agents
 - [`docs/fact-store.md`](docs/fact-store.md) — fact-store guide
 - [`llms.txt`](llms.txt) — agent discovery file
-- Paper, benchmarks and experiments: [proveml-research](https://github.com/ShaneDeconinck/proveml-research)
+- Paper, benchmarks and experiments: [proveml-research](https://github.com/abovebeyond-ai/proveml-research)

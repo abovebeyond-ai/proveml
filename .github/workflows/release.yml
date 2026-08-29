@@ -11,7 +11,7 @@
 # tests niet haalt, vertrekt niet.
 #
 # Eenmalig instellen op npmjs.com: pakket proveml -> Settings -> Trusted
-# Publisher -> GitHub Actions, repo ShaneDeconinck/proveml, workflow release.yml.
+# Publisher -> GitHub Actions, repo abovebeyond-ai/proveml, workflow release.yml.
 # Daarna is publiceren: git tag v0.2.0 && git push origin v0.2.0
 name: release
 
