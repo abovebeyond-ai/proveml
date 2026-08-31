@@ -47,7 +47,8 @@ export function snapshotText(raw, { html = true } = {}) {
 
 /** The identity of one reading: hash over exactly the parts being judged. */
 export function evidenceReviewId(subjectId, e) {
-    return reviewId(subjectId, e.field, e.claimValue, e.basis, e.sourceQuote || '', e.note || '');
+    const quotes = e.sourceQuotes ? e.sourceQuotes.map((q) => q.sourceQuote).join('\u0000') : (e.sourceQuote || '');
+    return reviewId(subjectId, e.field, e.claimValue, e.basis, quotes, e.note || '');
 }
 
 /**
@@ -121,13 +122,29 @@ function evidenceBlock(s, e, snapshots, ids) {
     ids.push(rid);
     let body;
     if (e.basis === 'quote') {
-        if (!e.sourceQuote) throw new Error(`${s.id}.${e.field}: basis "quote" without a sourceQuote.`);
-        if (snapshots[s.id] !== undefined && !squash(snapshots[s.id]).includes(squash(e.sourceQuote))) {
-            throw new Error(`${s.id}.${e.field}: quote not found verbatim in the snapshot.`);
+        // One value may rest on several quotes: a composite label whose
+        // elements live in different sentences. Every quote passes the same
+        // verbatim gate; the judgement hash covers them all.
+        const quotes = e.sourceQuotes || (e.sourceQuote ? [{ sourceQuote: e.sourceQuote, sourceLocator: e.sourceLocator }] : []);
+        if (!quotes.length) throw new Error(`${s.id}.${e.field}: basis "quote" without a sourceQuote.`);
+        for (const q of quotes) {
+            if (!q.sourceQuote) throw new Error(`${s.id}.${e.field}: a quotes entry without a sourceQuote.`);
+            if (snapshots[s.id] !== undefined && !squash(snapshots[s.id]).includes(squash(q.sourceQuote))) {
+                throw new Error(`${s.id}.${e.field}: quote not found verbatim in the snapshot.`);
+            }
         }
-        const loc = e.sourceLocator ? `<b>${esc(String(e.sourceLocator).replace(/_/g, ' '))}</b>` : '';
-        const link = e.sourceHref ? `${loc ? ', ' : ''}verbatim in the <a href="${attr(e.sourceHref)}">archived source</a>` : '';
-        body = `<p class="quote">\u201C${esc(e.sourceQuote)}\u201D</p>${loc || link ? `<p class="loc">${loc}${link}</p>` : ''}`;
+        if (quotes.length === 1) {
+            const q = quotes[0];
+            const loc = q.sourceLocator ? `<b>${esc(String(q.sourceLocator).replace(/_/g, ' '))}</b>` : '';
+            const link = e.sourceHref ? `${loc ? ', ' : ''}verbatim in the <a href="${attr(e.sourceHref)}">archived source</a>` : '';
+            body = `<p class="quote">\u201C${esc(q.sourceQuote)}\u201D</p>${loc || link ? `<p class="loc">${loc}${link}</p>` : ''}`;
+        } else {
+            body = quotes.map((q) => {
+                const loc = q.sourceLocator ? `<p class="loc">${esc(String(q.sourceLocator).replace(/_/g, ' '))}</p>` : '';
+                return `<p class="quote">\u201C${esc(q.sourceQuote)}\u201D</p>${loc}`;
+            }).join('');
+            body += `<p class="loc">each verbatim in the${e.sourceHref ? ` <a href="${attr(e.sourceHref)}">archived source</a>` : ' archived source'}</p>`;
+        }
     } else if (e.basis === 'derived') {
         body = `<p class="basis basis-derived">derived, not quoted</p>`;
     } else if (e.basis === 'absence') {
