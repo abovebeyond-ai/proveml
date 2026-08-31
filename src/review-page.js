@@ -212,7 +212,7 @@ button.rv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .reading[data-state=fair] button[data-verdict=flag],.reading[data-state=flag] button[data-verdict=fair]{opacity:.45}
 .reading[data-state=fair] button[data-verdict=flag]:hover,.reading[data-state=flag] button[data-verdict=fair]:hover{opacity:1}
 .pair[data-flagged] h2:after{content:" \u2691";color:var(--mark-bad)}
-.pair>header{cursor:pointer;position:sticky;top:3.35rem;z-index:5;background:var(--sky);padding:.45rem 0 .35rem}
+.pair>header{cursor:pointer;position:sticky;top:3.3rem;z-index:5;background:var(--sky);padding:.45rem 0 .35rem;box-shadow:0 -.8rem 0 var(--sky)}
 .nr{font-family:Lato,sans-serif;font-size:.95rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted);margin-right:.65rem}
 .pair[data-closed] .cols,.pair[data-all-judged]:not([data-open]) .cols{display:none}
 .pair[data-all-judged] .meta:after{content:" All readings judged.";color:var(--mark-ok)}
