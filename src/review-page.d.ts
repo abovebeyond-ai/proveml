@@ -34,7 +34,7 @@ export interface ReviewPageOptions {
   storeName?: string;
   /** Noun for the statline count. Default 'subjects'. */
   subjectsWord?: string;
-  /** Column labels. Default 'the claim' and 'the evidence'. */
+  /** Column labels. Default 'the output' and 'the evidence'. */
   leftLabel?: string;
   rightLabel?: string;
   /** Plain text per subject id; when present, every quote of that subject must occur in it verbatim or the build throws. */

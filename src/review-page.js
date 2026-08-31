@@ -62,7 +62,7 @@ export function evidenceReviewId(subjectId, e) {
  * @param {string} [opts.name='review']  tool label in the lockup
  * @param {string} [opts.storeName='store']  shown in the statline
  * @param {string} [opts.subjectsWord='subjects']  noun for the statline count
- * @param {string} [opts.leftLabel='the claim']  column label
+ * @param {string} [opts.leftLabel='the output']  column label
  * @param {string} [opts.rightLabel='the evidence']  column label
  * @param {Record<string, string>} [opts.snapshots]  plain text per subject id;
  *   when present for a subject, every quote of that subject must occur in it
@@ -76,7 +76,7 @@ export function reviewPage(opts) {
     const {
         store, subjects,
         name = 'review', storeName = 'store', subjectsWord = 'subjects',
-        leftLabel = 'the claim', rightLabel = 'the evidence',
+        leftLabel = 'the output', rightLabel = 'the evidence',
         snapshots = {}, committedReview = null, thresholds,
     } = opts;
     if (!store || typeof store !== 'object') throw new Error('reviewPage: expected a fact store object.');
@@ -85,7 +85,7 @@ export function reviewPage(opts) {
     let total = 0, verified = 0;
     const ids = [];
 
-    const cards = subjects.map((s) => {
+    const cards = subjects.map((s, i) => {
         const v = verifyProveml(s.claim, store, thresholds ? { thresholds } : undefined);
         total += v.total; verified += v.verified;
         if (v.errors.length) throw new Error(`${s.id}: ${v.errors.join('; ')}`);
@@ -93,7 +93,7 @@ export function reviewPage(opts) {
         const right = (s.evidence || []).map((e) => evidenceBlock(s, e, snapshots, ids)).join('');
         const meta = s.meta ? `${esc(s.meta)} ` : '';
         return `<section class="pair" id="${attr(s.id)}">
-  <header><h2>${esc(s.title)}</h2><p class="meta">${meta}${v.verified}/${v.total} claims verified, ${(s.evidence || []).length} fields of evidence.</p></header>
+  <header><h2><span class="nr">${String(i + 1).padStart(2, '0')}</span>${esc(s.title)}</h2><p class="meta">${meta}${v.verified}/${v.total} claims verified, ${(s.evidence || []).length} fields of evidence.</p></header>
   <div class="cols">
     <div class="col"><div class="lbl">${esc(leftLabel)}</div>${left}</div>
     <div class="col"><div class="lbl">${esc(rightLabel)}</div>${right}</div>
@@ -156,7 +156,7 @@ body::after{content:'';position:fixed;inset:-50%;z-index:80;pointer-events:none;
 @media (prefers-reduced-motion:reduce){body::after{animation:none}}
 .wrap{max-width:74rem;margin:0 auto;padding:2.5rem 1.5rem 5rem}
 .lockup{display:flex;align-items:center;gap:.55rem;margin:0 0 1.1rem}
-.lockup .tool{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.9rem;font-weight:400;color:var(--muted);margin-left:.15rem}
+.lockup .tool{font-family:Lato,sans-serif;font-size:1.5rem;font-weight:400;letter-spacing:-.02em;color:var(--muted);margin-left:.1rem}
 .lockup .merkteken{height:1.45rem;width:auto}
 .pml-name{font-family:Lato,sans-serif;font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--accent);background:var(--merk-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 h2{font-weight:700;font-size:1.15rem;margin:0;color:var(--ink)}
@@ -178,8 +178,9 @@ a{color:var(--accent)}
 .rv-filter input{accent-color:var(--accent);width:.9em;height:.9em;margin:0}
 .pair{border-top:1px solid var(--haze-line);padding:1.6rem 0 1.2rem}
 .reviewbar+.pair{border-top:none}
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1rem}
-@media (max-width:52rem){.cols{grid-template-columns:1fr}}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1rem;align-items:start}
+.col:first-child{position:sticky;top:8.6rem}
+@media (max-width:52rem){.cols{grid-template-columns:1fr}.col:first-child{position:static}.pair>header{position:static}}
 .col{background:var(--card);border:1px solid var(--haze-line);border-radius:4px;padding:1rem 1.2rem;font-size:1rem}
 .lbl{margin-bottom:.6rem;color:var(--muted)}
 .col p{margin:0 0 .8rem}.note{color:var(--muted);font-size:.9rem}.quote{font-style:italic;margin-bottom:.35rem}
@@ -204,7 +205,8 @@ button.rv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .reading[data-state=fair] button[data-verdict=flag],.reading[data-state=flag] button[data-verdict=fair]{opacity:.45}
 .reading[data-state=fair] button[data-verdict=flag]:hover,.reading[data-state=flag] button[data-verdict=fair]:hover{opacity:1}
 .pair[data-flagged] h2:after{content:" \u2691";color:var(--mark-bad)}
-.pair>header{cursor:pointer}
+.pair>header{cursor:pointer;position:sticky;top:3.35rem;z-index:5;background:var(--sky);padding:.45rem 0 .35rem}
+.nr{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.8rem;font-weight:400;color:var(--muted);margin-right:.65rem;letter-spacing:.02em}
 .pair[data-closed] .cols,.pair[data-all-judged]:not([data-open]) .cols{display:none}
 .pair[data-all-judged] .meta:after{content:" All readings judged.";color:var(--mark-ok)}
 .evidence[data-judged]:not([data-expanded])>:not(.ev-head){display:none}
