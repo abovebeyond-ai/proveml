@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync } from 'fs';
+import { resolve } from 'path';
+import { pathToFileURL } from 'url';
 import { stdin, stdout, stderr, exit } from 'process';
 import { renderProveml, PROVEML_CSS } from './render-html.js';
 import { educationFactStore, paperExampleSources } from './paper-examples.js';
 import { stripProveml, verifyProveml } from './verify.js';
 import { annotate } from './annotate.js';
 import { promptFor } from './prompt.js';
+import { reviewPage, snapshotText } from './review-page.js';
 import { thresholds as builtinThresholds } from './thresholds.js';
 
 const [, , command = 'help', ...argv] = process.argv;
@@ -30,6 +33,9 @@ try {
             break;
         case 'prompt':
             runPrompt(argv);
+            break;
+        case 'review':
+            await runReview(argv);
             break;
         case 'example':
         case 'examples':
@@ -192,6 +198,58 @@ function runDemo() {
  * that verifies. Rules are fixed; records, fields, units and the registry come
  * from the files given.
  */
+/**
+ * The review surface, agent-first: without --await it emits the page; with
+ * --await it serves the page, opens the browser, and blocks until the human
+ * presses "sign review", then writes the signed review and exits 0 only when
+ * everything is judged and nothing is flagged. A pipeline treats the human
+ * gate as one command.
+ */
+async function runReview(argv) {
+    const args = parseArgs(argv);
+    const store = resolveFactStore(args);
+    if (!args.evidence) throw new Error('Expected --evidence <subjects.json>.');
+    const subjects = JSON.parse(readFileSync(args.evidence, 'utf8'));
+    const snapshots = {};
+    if (args.snapshots) {
+        for (const f of readdirSync(args.snapshots)) {
+            const raw = readFileSync(resolve(args.snapshots, f), 'utf8');
+            snapshots[f.replace(/\.[^.]+$/, '')] = snapshotText(raw, { html: f.endsWith('.html') });
+        }
+    }
+    const opts = {
+        store, subjects, snapshots,
+        ...(args.committed ? { committedReview: JSON.parse(readFileSync(args.committed, 'utf8')) } : {}),
+        ...(typeof args.name === 'string' ? { name: args.name } : {}),
+        ...(args['store-name'] ? { storeName: args['store-name'] } : {}),
+        ...(args['subjects-word'] ? { subjectsWord: args['subjects-word'] } : {}),
+        ...(args.thresholds ? { thresholds: JSON.parse(readFileSync(args.thresholds, 'utf8')) } : {}),
+    };
+
+    if (args.await) {
+        const { awaitReview } = await import('./review-flow.js');
+        const signer = args.signer ? (await import(pathToFileURL(resolve(args.signer)).href)).default : undefined;
+        const { review, summary, url } = await awaitReview({
+            ...opts, signer,
+            ...(args['signed-by'] ? { signedBy: args['signed-by'] } : {}),
+            open: !args['no-open'],
+            onServe: (u) => stderr.write(`review page at ${u}\n`),
+        });
+        const out = JSON.stringify(review, null, 1);
+        if (args.out) { writeFileSync(args.out, `${out}\n`); stderr.write(`signed review written to ${args.out}\n`); }
+        else stdout.write(`${out}\n`);
+        stderr.write(`${summary.judged}/${summary.total} judged, ${summary.flagged} flagged, ${summary.orphaned.length} orphaned\n`);
+        exit(summary.flagged > 0 || summary.judged < summary.total ? 1 : 0);
+        return;
+    }
+
+    const { html, verified, total } = reviewPage(opts);
+    if (args.output) writeFileSync(args.output, html, 'utf8');
+    else stdout.write(html);
+    stderr.write(`${verified}/${total} claims machine-verified\n`);
+    exit(0);
+}
+
 function runPrompt(argv) {
     const args = parseArgs(argv);
     const store = args.facts ? JSON.parse(readFileSync(args.facts, 'utf8')) : {};
@@ -433,6 +491,8 @@ Usage:
   npx proveml render --input report.md --facts facts.json [--proof-paths] [--css] [--output out.html]
   npx proveml example [verifyCorrect|verifySuggestions|verifyErrors] [--json]
   npx proveml prompt --facts facts.json [--thresholds registry.json] [--role "..."] [--data]
+  npx proveml review --facts facts.json --evidence subjects.json [--snapshots dir] [--committed review.json] [--output page.html]
+  npx proveml review --facts facts.json --evidence subjects.json --await [--out review.json] [--signer signer.mjs] [--signed-by name] [--no-open]
 
 Notes:
   - demo needs no setup: it shows a checked report end to end.
@@ -444,5 +504,6 @@ Notes:
   - If no --input or --text is given, strip/verify/render read markup from stdin.
   - render prints HTML to stdout unless --output is provided.
   - prompt prints the system prompt a model needs for this store: the rules, the records and fields, the registry.
+  - review emits the review page: every claim next to its evidence, with the judgement widget. With --await it serves the page, waits for "sign review", writes the signed review, and exits 0 only when all readings are judged and none flagged; --signer points at a module whose default export attests the review.
 `);
 }

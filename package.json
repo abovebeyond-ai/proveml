@@ -53,6 +53,14 @@
     "./review": {
       "types": "./src/review.d.ts",
       "default": "./src/review.js"
+    },
+    "./review-page": {
+      "types": "./src/review-page.d.ts",
+      "default": "./src/review-page.js"
+    },
+    "./review-flow": {
+      "types": "./src/review-flow.d.ts",
+      "default": "./src/review-flow.js"
     }
   },
   "files": [
@@ -73,6 +81,10 @@
     "src/render-html.js",
     "src/renderer.d.ts",
     "src/renderer.js",
+    "src/review-flow.d.ts",
+    "src/review-flow.js",
+    "src/review-page.d.ts",
+    "src/review-page.js",
     "src/review.d.ts",
     "src/review.js",
     "src/style.css",
@@ -85,14 +97,16 @@
     "src/verify.js"
   ],
   "scripts": {
-    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js && node src/prompt.test.js && node src/review.test.js",
+    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js && node src/prompt.test.js && node src/review.test.js && node src/review-page.test.js && node src/review-flow.test.js",
     "test:plugin": "node src/proveml.test.js",
     "test:grammar": "node src/grammar.test.js",
     "test:cli": "node src/cli.test.js",
     "test:detection": "node src/detection.test.js",
     "test:examples": "node src/paper-examples.test.js",
     "test:prompt": "node src/prompt.test.js",
-    "test:review": "node src/review.test.js"
+    "test:review": "node src/review.test.js",
+    "test:review-page": "node src/review-page.test.js",
+    "test:review-flow": "node src/review-flow.test.js"
   },
   "keywords": [
     "proveml",
