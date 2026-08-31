@@ -110,7 +110,7 @@ export function reviewPage(opts) {
 <div class="wrap">
 <h1 class="lockup">${MERKTEKEN}<span class="pml-name">proveml</span><span class="tool">${esc(name)}</span></h1>
 <p class="statline">store ${esc(storeName)}, ${subjects.length} ${esc(subjectsWord)}: <b>${verified}/${total} claims machine-verified</b>, built ${built}.</p>
-<div class="reviewbar"><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-link">next unjudged</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
+<div class="reviewbar"><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-pill">next unjudged</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
 ${cards}
 </div>${committedTag}<script>${SCRIPT}</script></body></html>`;
 
@@ -168,6 +168,11 @@ a{color:var(--accent)}
 .rv-meter{flex:0 0 9rem;height:5px;background:var(--tint)}
 .rv-fill{height:100%;width:0;background:var(--accent);transition:width .25s}
 .rv-actions{margin-left:auto;display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap}
+.rv-pill{font-family:inherit;font-size:.8rem;letter-spacing:.02em;background:none;border:1px solid var(--haze-line);border-radius:999px;padding:.35rem .85rem;color:var(--ink);cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease;-webkit-tap-highlight-color:transparent}
+.rv-pill:hover{border-color:var(--accent);color:var(--accent)}
+.rv-pill:active{background:var(--accent);border-color:var(--accent);color:var(--card)}
+.rv-pill:focus{outline:none}
+.rv-pill:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #rv-progress{font-family:Lato,sans-serif;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
 .rv-link{font-family:inherit;font-size:inherit;background:none;border:none;padding:0;color:var(--muted);cursor:pointer;text-decoration:underline;text-decoration-color:var(--haze-line);text-underline-offset:.3em;transition:color .2s ease,text-decoration-color .2s ease}
 .rv-link:hover{color:var(--accent);text-decoration-color:var(--accent)}
