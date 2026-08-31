@@ -62,6 +62,8 @@ export function evidenceReviewId(subjectId, e) {
  * @param {string} [opts.name='review']  tool label in the lockup
  * @param {string} [opts.storeName='store']  shown in the statline
  * @param {string} [opts.subjectsWord='subjects']  noun for the statline count
+ * @param {string} [opts.leftLabel='the claim']  column label
+ * @param {string} [opts.rightLabel='the evidence']  column label
  * @param {Record<string, string>} [opts.snapshots]  plain text per subject id;
  *   when present for a subject, every quote of that subject must occur in it
  *   verbatim (whitespace-normalised) or the build throws
@@ -74,6 +76,7 @@ export function reviewPage(opts) {
     const {
         store, subjects,
         name = 'review', storeName = 'store', subjectsWord = 'subjects',
+        leftLabel = 'the claim', rightLabel = 'the evidence',
         snapshots = {}, committedReview = null, thresholds,
     } = opts;
     if (!store || typeof store !== 'object') throw new Error('reviewPage: expected a fact store object.');
@@ -92,8 +95,8 @@ export function reviewPage(opts) {
         return `<section class="pair" id="${attr(s.id)}">
   <header><h2>${esc(s.title)}</h2><p class="meta">${meta}${v.verified}/${v.total} claims verified, ${(s.evidence || []).length} fields of evidence.</p></header>
   <div class="cols">
-    <div class="col"><div class="lbl">the claim</div>${left}</div>
-    <div class="col"><div class="lbl">the evidence</div>${right}</div>
+    <div class="col"><div class="lbl">${esc(leftLabel)}</div>${left}</div>
+    <div class="col"><div class="lbl">${esc(rightLabel)}</div>${right}</div>
   </div>
 </section>`;
     }).join('\n');
