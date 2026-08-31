@@ -108,9 +108,8 @@ export function reviewPage(opts) {
 
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProveML ${esc(name)}</title><style>${CSS}</style></head><body>
 <div class="wrap">
-<h1 class="lockup">${MERKTEKEN}<span class="pml-name">proveml</span><span class="tool">${esc(name)}</span></h1>
+<div class="reviewbar"><h1 class="lockup">${MERKTEKEN}<span class="pml-name">proveml</span><span class="tool">${esc(name)}</span></h1><span class="rv-nav"><button id="rv-prev-src" class="rv-pill rv-arrow" aria-label="previous source">\u2191</button><button id="rv-next-src" class="rv-pill rv-arrow" aria-label="next source">\u2193</button></span><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-pill">next unjudged</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
 <p class="statline">store ${esc(storeName)}, ${subjects.length} ${esc(subjectsWord)}: <b>${verified}/${total} claims machine-verified</b>, built ${built}.</p>
-<div class="reviewbar"><span class="rv-nav"><button id="rv-prev-src" class="rv-pill rv-arrow" aria-label="previous source">\u2191</button><button id="rv-next-src" class="rv-pill rv-arrow" aria-label="next source">\u2193</button></span><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-pill">next unjudged</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
 ${cards}
 </div>${committedTag}<script>${SCRIPT}</script></body></html>`;
 
@@ -155,16 +154,19 @@ body::after{content:'';position:fixed;inset:-50%;z-index:80;pointer-events:none;
 @keyframes grain{0%,100%{transform:translate(0,0)}25%{transform:translate(-1.2%,.8%)}50%{transform:translate(.6%,-1%)}75%{transform:translate(-.4%,1.2%)}}
 @media (prefers-reduced-motion:reduce){body::after{animation:none}}
 .wrap{max-width:74rem;margin:0 auto;padding:2.5rem 1.5rem 5rem}
-.lockup{display:flex;align-items:center;gap:.55rem;margin:0 0 1.1rem}
+.lockup{display:flex;align-items:center;gap:.45rem;margin:0 .4rem 0 0}
+.reviewbar .pml-name{font-size:1.2rem}
+.reviewbar .merkteken{height:1.15rem}
+.reviewbar .tool{font-size:1.05rem;margin-left:.1rem}
 .lockup .tool{font-family:Lato,sans-serif;font-size:1.5rem;font-weight:400;letter-spacing:-.02em;color:var(--muted);margin-left:.1rem}
 .lockup .merkteken{height:1.45rem;width:auto}
 .pml-name{font-family:Lato,sans-serif;font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--accent);background:var(--merk-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 h2{font-weight:700;font-size:1.15rem;margin:0;color:var(--ink)}
 a{color:var(--accent)}
 .meta,.lbl,.loc{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.78rem;color:var(--muted)}
-.statline{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.85rem;color:var(--muted);margin:0 0 2.5rem}
+.statline{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.85rem;color:var(--muted);margin:0 0 2.2rem}
 .statline b{color:var(--mark-ok);font-weight:500}
-.reviewbar{position:sticky;top:0;z-index:6;display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin:2rem 0 2.5rem;padding:.8rem 0;background:var(--sky);border-bottom:1px solid var(--haze-line);font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.85rem;color:var(--muted)}
+.reviewbar{position:sticky;top:0;z-index:6;display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin:0 0 1rem;padding:.8rem 0;background:var(--sky);border-bottom:1px solid var(--haze-line);font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.85rem;color:var(--muted)}
 .rv-meter{flex:1 1 auto;min-width:6rem;height:5px;background:var(--tint)}
 .rv-fill{height:100%;width:0;background:var(--accent);transition:width .25s}
 .rv-actions{margin-left:auto;display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap}
@@ -183,10 +185,10 @@ a{color:var(--accent)}
 .rv-filter{display:flex;gap:.45rem;align-items:center;cursor:pointer;transition:color .2s ease}
 .rv-filter:hover{color:var(--ink)}
 .rv-filter input{accent-color:var(--accent);width:.9em;height:.9em;margin:0}
-.pair{border-top:1px solid var(--haze-line);padding:1.6rem 0 1.2rem;scroll-margin-top:3.4rem}
+.pair{border-top:1px solid var(--haze-line);padding:1.6rem 0 1.2rem;scroll-margin-top:3.9rem}
 .reviewbar+.pair{border-top:none}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1rem;align-items:start}
-.col:first-child{position:sticky;top:8.6rem}
+.col:first-child{position:sticky;top:9.2rem}
 @media (max-width:52rem){.cols{grid-template-columns:1fr}.col:first-child{position:static}.pair>header{position:static}}
 .col{background:var(--card);border:1px solid var(--haze-line);border-radius:4px;padding:1rem 1.2rem;font-size:1rem}
 .lbl{margin-bottom:.6rem;color:var(--muted)}
@@ -212,7 +214,7 @@ button.rv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .reading[data-state=fair] button[data-verdict=flag],.reading[data-state=flag] button[data-verdict=fair]{opacity:.45}
 .reading[data-state=fair] button[data-verdict=flag]:hover,.reading[data-state=flag] button[data-verdict=fair]:hover{opacity:1}
 .pair[data-flagged] h2:after{content:" \u2691";color:var(--mark-bad)}
-.pair>header{cursor:pointer;position:sticky;top:3.3rem;z-index:5;background:var(--sky);padding:.45rem 0 .35rem;box-shadow:0 -.8rem 0 var(--sky)}
+.pair>header{cursor:pointer;position:sticky;top:3.8rem;z-index:5;background:var(--sky);padding:.45rem 0 .35rem;box-shadow:0 -.8rem 0 var(--sky)}
 .nr{font-family:Lato,sans-serif;font-size:.95rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted);margin-right:.65rem}
 .pair[data-closed] .cols,.pair[data-all-judged]:not([data-open]) .cols{display:none}
 .pair[data-all-judged] .meta:after{content:" All readings judged.";color:var(--mark-ok)}
@@ -299,7 +301,7 @@ document.addEventListener('click', (e) => {
     if (e.target.id === 'rv-prev-src' || e.target.id === 'rv-next-src') {
         const ps = [...document.querySelectorAll('.pair')];
         let ci = -1;
-        ps.forEach((p, i) => { if (p.getBoundingClientRect().top <= 70) ci = i; });
+        ps.forEach((p, i) => { if (p.getBoundingClientRect().top <= 80) ci = i; });
         const t = ps[e.target.id === 'rv-next-src' ? Math.min(ci + 1, ps.length - 1) : Math.max(ci - 1, 0)];
         if (t) t.scrollIntoView();
     }
