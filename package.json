@@ -1,6 +1,6 @@
 {
   "name": "proveml",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Deterministic claim-level verification for AI-generated text with Markdown-native inline markup.",
   "type": "module",
   "types": "src/index.d.ts",
@@ -49,6 +49,10 @@
     "./prompt": {
       "types": "./src/prompt.d.ts",
       "default": "./src/prompt.js"
+    },
+    "./review": {
+      "types": "./src/review.d.ts",
+      "default": "./src/review.js"
     }
   },
   "files": [
@@ -69,6 +73,8 @@
     "src/render-html.js",
     "src/renderer.d.ts",
     "src/renderer.js",
+    "src/review.d.ts",
+    "src/review.js",
     "src/style.css",
     "src/thresholds.d.ts",
     "src/thresholds.js",
@@ -79,13 +85,14 @@
     "src/verify.js"
   ],
   "scripts": {
-    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js && node src/prompt.test.js",
+    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js && node src/prompt.test.js && node src/review.test.js",
     "test:plugin": "node src/proveml.test.js",
     "test:grammar": "node src/grammar.test.js",
     "test:cli": "node src/cli.test.js",
     "test:detection": "node src/detection.test.js",
     "test:examples": "node src/paper-examples.test.js",
-    "test:prompt": "node src/prompt.test.js"
+    "test:prompt": "node src/prompt.test.js",
+    "test:review": "node src/review.test.js"
   },
   "keywords": [
     "proveml",
