@@ -75,6 +75,18 @@ const system = promptFor({ store, thresholds, role: 'You write monthly investor 
 npx proveml prompt --facts facts.json --thresholds registry.json
 ```
 
+## Review: the judgements no machine can make
+
+Some links in a chain of evidence are not lookups: whether a stored value is a
+fair reading of a quote, whether a report may go out. `proveml/review` gives
+those human judgements the verifier's discipline: a judgement is saved under a
+hash of exactly the content it approved (`reviewId(...parts)`), so when the
+content changes the judgement dies with it, and `summarize` reports the
+orphans: every checkmark that would have silently lied on a hand-kept list.
+A shared browser widget (`REVIEW_CSS`, `REVIEW_JS`) turns any page into a
+checklist with progress, an unjudged filter, and JSON export for committing;
+a committed review can be baked back in as `window.PROVEML_REVIEW_COMMITTED`.
+
 ## Coverage: what is not a claim
 
 A verification rate counts only what is inside markup, so a report that marks
