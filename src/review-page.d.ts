@@ -6,8 +6,10 @@ export interface EvidenceEntry {
   /** The store value the evidence is claimed to support. */
   claimValue: unknown;
   basis: EvidenceBasis;
-  /** Required when basis is 'quote'; checked verbatim against the subject's snapshot when one is given. */
+  /** Required when basis is 'quote' (unless sourceQuotes is given); checked verbatim against the subject's snapshot when one is given. */
   sourceQuote?: string;
+  /** A composite value may rest on several quotes, each verbatim-gated; the judgement hash covers them all. */
+  sourceQuotes?: { sourceQuote: string; sourceLocator?: string }[];
   /** Where in the source the quote sits, for a reader retracing it. */
   sourceLocator?: string;
   /** Link to the archived source. */

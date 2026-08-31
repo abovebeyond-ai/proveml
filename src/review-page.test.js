@@ -75,6 +75,28 @@ console.log('\n=== review-page: judgements die with the evidence ===');
     assert('the old judgement is orphaned', s.orphaned.includes(before) && s.judged === 0, JSON.stringify(s));
 }
 
+console.log('\n=== review-page: several quotes under one value ===');
+{
+    const multi = [{ ...subjects[0], evidence: [{
+        field: 'category', claimValue: 'inline financial tagging standard', basis: 'quote',
+        sourceQuotes: [
+            { sourceQuote: 'iXBRL embeds extra tags', sourceLocator: 'p3' },
+            { sourceQuote: 'into the HTML standard', sourceLocator: 'p3b' },
+        ],
+    }] }];
+    const r = reviewPage({ store, subjects: multi, snapshots });
+    assert('all quotes render with their locators', (r.html.match(/class="quote"/g) || []).length === 2 && r.html.includes('each verbatim in the'));
+    assert('one bad quote in the set fails the build', throws(() => reviewPage({
+        store, snapshots,
+        subjects: [{ ...subjects[0], evidence: [{ field: 'category', claimValue: 'x', basis: 'quote', sourceQuotes: [{ sourceQuote: 'iXBRL embeds extra tags' }, { sourceQuote: 'never said this' }] }] }],
+    }), /not found verbatim/));
+    const a = evidenceReviewId('ixbrl', multi[0].evidence[0]);
+    const b = evidenceReviewId('ixbrl', { ...multi[0].evidence[0], sourceQuotes: [multi[0].evidence[0].sourceQuotes[0]] });
+    assert('the hash covers every quote', a !== b);
+    const single = { field: 'f', claimValue: 'v', basis: 'quote', sourceQuote: 'q' };
+    assert('single-quote hashes are unchanged by the feature', evidenceReviewId('x', single) === evidenceReviewId('x', { ...single, sourceQuotes: undefined }));
+}
+
 console.log('\n=== review-page: committed review is baked in ===');
 {
     const id = evidenceReviewId('ixbrl', subjects[0].evidence[0]);
