@@ -62,7 +62,7 @@ export function evidenceReviewId(subjectId, e) {
  * @param {string} [opts.name='review']  tool label in the lockup
  * @param {string} [opts.storeName='store']  shown in the statline
  * @param {string} [opts.subjectsWord='subjects']  noun for the statline count
- * @param {string} [opts.leftLabel='the claim']  column label
+ * @param {string} [opts.leftLabel='the output']  column label
  * @param {string} [opts.rightLabel='the evidence']  column label
  * @param {Record<string, string>} [opts.snapshots]  plain text per subject id;
  *   when present for a subject, every quote of that subject must occur in it
@@ -76,7 +76,7 @@ export function reviewPage(opts) {
     const {
         store, subjects,
         name = 'review', storeName = 'store', subjectsWord = 'subjects',
-        leftLabel = 'the claim', rightLabel = 'the evidence',
+        leftLabel = 'the output', rightLabel = 'the evidence',
         snapshots = {}, committedReview = null, thresholds,
     } = opts;
     if (!store || typeof store !== 'object') throw new Error('reviewPage: expected a fact store object.');
@@ -85,7 +85,7 @@ export function reviewPage(opts) {
     let total = 0, verified = 0;
     const ids = [];
 
-    const cards = subjects.map((s) => {
+    const cards = subjects.map((s, i) => {
         const v = verifyProveml(s.claim, store, thresholds ? { thresholds } : undefined);
         total += v.total; verified += v.verified;
         if (v.errors.length) throw new Error(`${s.id}: ${v.errors.join('; ')}`);
@@ -93,7 +93,7 @@ export function reviewPage(opts) {
         const right = (s.evidence || []).map((e) => evidenceBlock(s, e, snapshots, ids)).join('');
         const meta = s.meta ? `${esc(s.meta)} ` : '';
         return `<section class="pair" id="${attr(s.id)}">
-  <header><h2>${esc(s.title)}</h2><p class="meta">${meta}${v.verified}/${v.total} claims verified, ${(s.evidence || []).length} fields of evidence.</p></header>
+  <header><h2><span class="nr">${String(i + 1).padStart(2, '0')}</span>${esc(s.title)}</h2><p class="meta">${meta}${v.verified}/${v.total} claims verified, ${(s.evidence || []).length} fields of evidence.</p></header>
   <div class="cols">
     <div class="col"><div class="lbl">${esc(leftLabel)}</div>${left}</div>
     <div class="col"><div class="lbl">${esc(rightLabel)}</div>${right}</div>
@@ -110,7 +110,7 @@ export function reviewPage(opts) {
 <div class="wrap">
 <h1 class="lockup">${MERKTEKEN}<span class="pml-name">proveml</span><span class="tool">${esc(name)}</span></h1>
 <p class="statline">store ${esc(storeName)}, ${subjects.length} ${esc(subjectsWord)}: <b>${verified}/${total} claims machine-verified</b>, built ${built}.</p>
-<div class="reviewbar"><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-link">next unjudged</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
+<div class="reviewbar"><span class="rv-nav"><button id="rv-prev-src" class="rv-pill rv-arrow" aria-label="previous source">\u2191</button><button id="rv-next-src" class="rv-pill rv-arrow" aria-label="next source">\u2193</button></span><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-pill">next unjudged</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
 ${cards}
 </div>${committedTag}<script>${SCRIPT}</script></body></html>`;
 
@@ -148,7 +148,7 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700;800;900&family=Spline+Sans+Mono:wght@400;500&display=swap');
 :root{--night:#14233b;--sky:#f2f6f7;--haze:#a8bfc9;--ink:#0e2433;--muted:#47616f;--haze-line:rgba(14,36,51,.18);--card:#fafcfd;--tint:#dfe8eb;--mark-ok:#126b3a;--mark-ok-lijn:rgba(18,107,58,.5);--mark-inf:#0e5730;--mark-inf-vlak:rgba(18,107,58,.14);--mark-bad:#a8352a;--mark-bad-lijn:rgba(168,53,42,.7);--mark-unk:#a35a06;--accent:#1a4fb4;--tip-vlak:#0e2433;--tip-ink:#f2f6f7;--merk-grad:linear-gradient(105deg,#126b3a,#1a4fb4);--shadow:0 2px 4px rgba(14,36,51,.08),0 18px 50px rgba(14,36,51,.16)}
 *{box-sizing:border-box}
-html{background:var(--sky);color-scheme:light;scroll-behavior:smooth}
+html{background:var(--sky);color-scheme:light}
 html,body{overflow-x:clip}
 body{margin:0;background:var(--sky);color:var(--ink);font-family:Lato,system-ui,sans-serif;font-size:1.0625rem;line-height:1.7;-webkit-font-smoothing:antialiased}
 body::after{content:'';position:fixed;inset:-50%;z-index:80;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:300px 300px;opacity:.28;animation:grain 3.2s steps(3) infinite}
@@ -156,7 +156,7 @@ body::after{content:'';position:fixed;inset:-50%;z-index:80;pointer-events:none;
 @media (prefers-reduced-motion:reduce){body::after{animation:none}}
 .wrap{max-width:74rem;margin:0 auto;padding:2.5rem 1.5rem 5rem}
 .lockup{display:flex;align-items:center;gap:.55rem;margin:0 0 1.1rem}
-.lockup .tool{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.9rem;font-weight:400;color:var(--muted);margin-left:.15rem}
+.lockup .tool{font-family:Lato,sans-serif;font-size:1.5rem;font-weight:400;letter-spacing:-.02em;color:var(--muted);margin-left:.1rem}
 .lockup .merkteken{height:1.45rem;width:auto}
 .pml-name{font-family:Lato,sans-serif;font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--accent);background:var(--merk-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 h2{font-weight:700;font-size:1.15rem;margin:0;color:var(--ink)}
@@ -165,10 +165,17 @@ a{color:var(--accent)}
 .statline{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.85rem;color:var(--muted);margin:0 0 2.5rem}
 .statline b{color:var(--mark-ok);font-weight:500}
 .reviewbar{position:sticky;top:0;z-index:6;display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin:2rem 0 2.5rem;padding:.8rem 0;background:var(--sky);border-bottom:1px solid var(--haze-line);font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.85rem;color:var(--muted)}
-.rv-meter{flex:0 0 9rem;height:5px;background:var(--tint)}
+.rv-meter{flex:1 1 auto;min-width:6rem;height:5px;background:var(--tint)}
 .rv-fill{height:100%;width:0;background:var(--accent);transition:width .25s}
 .rv-actions{margin-left:auto;display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap}
-#rv-progress{color:var(--ink)}
+.rv-pill{font-family:inherit;font-size:.8rem;letter-spacing:.02em;background:none;border:1px solid var(--haze-line);border-radius:999px;padding:.35rem .85rem;color:var(--ink);cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease;-webkit-tap-highlight-color:transparent}
+.rv-pill:hover{border-color:var(--accent);color:var(--accent)}
+.rv-pill:active{background:var(--accent);border-color:var(--accent);color:var(--card)}
+.rv-pill:focus{outline:none}
+.rv-pill:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rv-nav{display:flex;gap:.4rem}
+.rv-arrow{padding:.25rem .6rem;font-size:.9rem;line-height:1.4;color:var(--muted)}
+#rv-progress{font-family:Lato,sans-serif;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
 .rv-link{font-family:inherit;font-size:inherit;background:none;border:none;padding:0;color:var(--muted);cursor:pointer;text-decoration:underline;text-decoration-color:var(--haze-line);text-underline-offset:.3em;transition:color .2s ease,text-decoration-color .2s ease}
 .rv-link:hover{color:var(--accent);text-decoration-color:var(--accent)}
 .rv-link:focus{outline:none}
@@ -176,13 +183,14 @@ a{color:var(--accent)}
 .rv-filter{display:flex;gap:.45rem;align-items:center;cursor:pointer;transition:color .2s ease}
 .rv-filter:hover{color:var(--ink)}
 .rv-filter input{accent-color:var(--accent);width:.9em;height:.9em;margin:0}
-.pair{border-top:1px solid var(--haze-line);padding:1.6rem 0 1.2rem}
+.pair{border-top:1px solid var(--haze-line);padding:1.6rem 0 1.2rem;scroll-margin-top:3.4rem}
 .reviewbar+.pair{border-top:none}
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1rem}
-@media (max-width:52rem){.cols{grid-template-columns:1fr}}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1rem;align-items:start}
+.col:first-child{position:sticky;top:8.6rem}
+@media (max-width:52rem){.cols{grid-template-columns:1fr}.col:first-child{position:static}.pair>header{position:static}}
 .col{background:var(--card);border:1px solid var(--haze-line);border-radius:4px;padding:1rem 1.2rem;font-size:1rem}
 .lbl{margin-bottom:.6rem;color:var(--muted)}
-.col p{margin:0 0 .8rem}.note{color:var(--muted);font-size:.9rem}.quote{font-style:italic;margin-bottom:.35rem}
+.col p{margin:0 0 .8rem}.note{color:var(--muted);font-size:.9rem}.quote{font-style:italic;margin:0 0 .35rem;padding-left:.85rem;border-left:2px solid var(--haze-line)}
 .evidence{padding:.7rem 0;border-top:1px dashed var(--haze-line)}
 .evidence:first-child{border-top:none;padding-top:0}
 .ev-head{margin:0 0 .4rem}.ev-head code{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.82rem}
@@ -204,7 +212,8 @@ button.rv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .reading[data-state=fair] button[data-verdict=flag],.reading[data-state=flag] button[data-verdict=fair]{opacity:.45}
 .reading[data-state=fair] button[data-verdict=flag]:hover,.reading[data-state=flag] button[data-verdict=fair]:hover{opacity:1}
 .pair[data-flagged] h2:after{content:" \u2691";color:var(--mark-bad)}
-.pair>header{cursor:pointer}
+.pair>header{cursor:pointer;position:sticky;top:3.3rem;z-index:5;background:var(--sky);padding:.45rem 0 .35rem;box-shadow:0 -.8rem 0 var(--sky)}
+.nr{font-family:Lato,sans-serif;font-size:.95rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted);margin-right:.65rem}
 .pair[data-closed] .cols,.pair[data-all-judged]:not([data-open]) .cols{display:none}
 .pair[data-all-judged] .meta:after{content:" All readings judged.";color:var(--mark-ok)}
 .evidence[data-judged]:not([data-expanded])>:not(.ev-head){display:none}
@@ -215,7 +224,7 @@ button.rv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .evidence[data-judged=flag] .ev-head:after{content:"\u2691 flagged";color:var(--mark-bad)}
 .evidence[data-judged][data-expanded] .ev-head{cursor:pointer}
 body[data-only-unjudged] .pair[data-all-judged]{display:none}
-.reading{color:var(--muted)}
+.reading{color:var(--muted);background:rgba(14,36,51,.04);border-radius:4px;padding:.65rem .8rem;margin-top:.55rem}
 .reading .j{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.68rem;letter-spacing:.07em;border:1px dashed var(--haze-line);border-radius:999px;padding:.12em .55em;margin-right:.4em;color:var(--muted)}
 .loc{margin:0 0 1rem}.loc b{font-weight:500;color:var(--mark-ok)}.loc a{color:var(--muted)}
 .proveml-entity.proveml-verified{color:var(--mark-ok);border:1px solid var(--mark-ok-lijn);border-radius:2px;padding:.05em .35em}
@@ -287,12 +296,19 @@ document.addEventListener('click', (e) => {
             else p.toggleAttribute('data-closed');
         }
     }
+    if (e.target.id === 'rv-prev-src' || e.target.id === 'rv-next-src') {
+        const ps = [...document.querySelectorAll('.pair')];
+        let ci = -1;
+        ps.forEach((p, i) => { if (p.getBoundingClientRect().top <= 70) ci = i; });
+        const t = ps[e.target.id === 'rv-next-src' ? Math.min(ci + 1, ps.length - 1) : Math.max(ci - 1, 0)];
+        if (t) t.scrollIntoView();
+    }
     if (e.target.id === 'rv-next') {
         const saved = merged();
         const next = readings.find(r => !saved[r.dataset.review]);
         if (next) {
             const p = next.closest('.pair'); if (p) p.removeAttribute('data-closed');
-            (next.closest('.evidence') || next).scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (next.closest('.evidence') || next).scrollIntoView({ block: 'center' });
         }
     }
     if (e.target.id === 'rv-export') {
