@@ -156,7 +156,7 @@ body::after{content:'';position:fixed;inset:-50%;z-index:80;pointer-events:none;
 @media (prefers-reduced-motion:reduce){body::after{animation:none}}
 .wrap{max-width:74rem;margin:0 auto;padding:2.5rem 1.5rem 5rem}
 .lockup{display:flex;align-items:center;gap:.55rem;margin:0 0 1.1rem}
-.lockup .tool{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.9rem;font-weight:400;color:var(--muted);margin-left:.15rem}
+.lockup .tool{font-family:Lato,sans-serif;font-size:1.5rem;font-weight:400;letter-spacing:-.02em;color:var(--muted);margin-left:.1rem}
 .lockup .merkteken{height:1.45rem;width:auto}
 .pml-name{font-family:Lato,sans-serif;font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--accent);background:var(--merk-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 h2{font-weight:700;font-size:1.15rem;margin:0;color:var(--ink)}
@@ -178,8 +178,9 @@ a{color:var(--accent)}
 .rv-filter input{accent-color:var(--accent);width:.9em;height:.9em;margin:0}
 .pair{border-top:1px solid var(--haze-line);padding:1.6rem 0 1.2rem}
 .reviewbar+.pair{border-top:none}
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1rem}
-@media (max-width:52rem){.cols{grid-template-columns:1fr}}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1rem;align-items:start}
+.col:first-child{position:sticky;top:3.9rem}
+@media (max-width:52rem){.cols{grid-template-columns:1fr}.col:first-child{position:static}}
 .col{background:var(--card);border:1px solid var(--haze-line);border-radius:4px;padding:1rem 1.2rem;font-size:1rem}
 .lbl{margin-bottom:.6rem;color:var(--muted)}
 .col p{margin:0 0 .8rem}.note{color:var(--muted);font-size:.9rem}.quote{font-style:italic;margin-bottom:.35rem}
