@@ -342,7 +342,7 @@ paint();
 // checklist with a clipboard. The button appears only when the flag exists.
 if (window.PROVEML_REVIEW_SUBMIT) {
     const btn = document.createElement('button');
-    btn.id = 'rv-sign'; btn.className = 'rv-link'; btn.textContent = 'sign review';
+    btn.id = 'rv-sign'; btn.className = 'rv-pill'; btn.textContent = 'sign review';
     document.querySelector('.rv-actions').prepend(btn);
     btn.addEventListener('click', () => {
         fetch(window.PROVEML_REVIEW_SUBMIT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ exported: new Date().toISOString(), judgements: merged() }) })
