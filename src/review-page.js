@@ -148,7 +148,7 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700;800;900&family=Spline+Sans+Mono:wght@400;500&display=swap');
 :root{--night:#14233b;--sky:#f2f6f7;--haze:#a8bfc9;--ink:#0e2433;--muted:#47616f;--haze-line:rgba(14,36,51,.18);--card:#fafcfd;--tint:#dfe8eb;--mark-ok:#126b3a;--mark-ok-lijn:rgba(18,107,58,.5);--mark-inf:#0e5730;--mark-inf-vlak:rgba(18,107,58,.14);--mark-bad:#a8352a;--mark-bad-lijn:rgba(168,53,42,.7);--mark-unk:#a35a06;--accent:#1a4fb4;--tip-vlak:#0e2433;--tip-ink:#f2f6f7;--merk-grad:linear-gradient(105deg,#126b3a,#1a4fb4);--shadow:0 2px 4px rgba(14,36,51,.08),0 18px 50px rgba(14,36,51,.16)}
 *{box-sizing:border-box}
-html{background:var(--sky);color-scheme:light;scroll-behavior:smooth}
+html{background:var(--sky);color-scheme:light}
 html,body{overflow-x:clip}
 body{margin:0;background:var(--sky);color:var(--ink);font-family:Lato,system-ui,sans-serif;font-size:1.0625rem;line-height:1.7;-webkit-font-smoothing:antialiased}
 body::after{content:'';position:fixed;inset:-50%;z-index:80;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:300px 300px;opacity:.28;animation:grain 3.2s steps(3) infinite}
@@ -301,14 +301,14 @@ document.addEventListener('click', (e) => {
         let ci = -1;
         ps.forEach((p, i) => { if (p.getBoundingClientRect().top <= 70) ci = i; });
         const t = ps[e.target.id === 'rv-next-src' ? Math.min(ci + 1, ps.length - 1) : Math.max(ci - 1, 0)];
-        if (t) t.scrollIntoView({ behavior: 'smooth' });
+        if (t) t.scrollIntoView();
     }
     if (e.target.id === 'rv-next') {
         const saved = merged();
         const next = readings.find(r => !saved[r.dataset.review]);
         if (next) {
             const p = next.closest('.pair'); if (p) p.removeAttribute('data-closed');
-            (next.closest('.evidence') || next).scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (next.closest('.evidence') || next).scrollIntoView({ block: 'center' });
         }
     }
     if (e.target.id === 'rv-export') {
