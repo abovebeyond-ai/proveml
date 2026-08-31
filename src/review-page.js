@@ -157,7 +157,7 @@ body::after{content:'';position:fixed;inset:-50%;z-index:80;pointer-events:none;
 .lockup{display:flex;align-items:center;gap:.45rem;margin:0 .4rem 0 0}
 .reviewbar .pml-name{font-size:1.2rem}
 .reviewbar .merkteken{height:1.15rem}
-.reviewbar .tool{font-size:1.05rem;margin-left:.1rem}
+.reviewbar .tool{font-size:.9rem;margin-left:.1rem}
 .lockup .tool{font-family:Lato,sans-serif;font-size:1.5rem;font-weight:400;letter-spacing:-.02em;color:var(--muted);margin-left:.1rem}
 .lockup .merkteken{height:1.45rem;width:auto}
 .pml-name{font-family:Lato,sans-serif;font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--accent);background:var(--merk-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
