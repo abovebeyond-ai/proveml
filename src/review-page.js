@@ -168,7 +168,7 @@ a{color:var(--accent)}
 .rv-meter{flex:0 0 9rem;height:5px;background:var(--tint)}
 .rv-fill{height:100%;width:0;background:var(--accent);transition:width .25s}
 .rv-actions{margin-left:auto;display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap}
-#rv-progress{color:var(--ink)}
+#rv-progress{font-family:Lato,sans-serif;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
 .rv-link{font-family:inherit;font-size:inherit;background:none;border:none;padding:0;color:var(--muted);cursor:pointer;text-decoration:underline;text-decoration-color:var(--haze-line);text-underline-offset:.3em;transition:color .2s ease,text-decoration-color .2s ease}
 .rv-link:hover{color:var(--accent);text-decoration-color:var(--accent)}
 .rv-link:focus{outline:none}
@@ -206,7 +206,7 @@ button.rv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .reading[data-state=fair] button[data-verdict=flag]:hover,.reading[data-state=flag] button[data-verdict=fair]:hover{opacity:1}
 .pair[data-flagged] h2:after{content:" \u2691";color:var(--mark-bad)}
 .pair>header{cursor:pointer;position:sticky;top:3.35rem;z-index:5;background:var(--sky);padding:.45rem 0 .35rem}
-.nr{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.8rem;font-weight:400;color:var(--muted);margin-right:.65rem;letter-spacing:.02em}
+.nr{font-family:Lato,sans-serif;font-size:.95rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted);margin-right:.65rem}
 .pair[data-closed] .cols,.pair[data-all-judged]:not([data-open]) .cols{display:none}
 .pair[data-all-judged] .meta:after{content:" All readings judged.";color:var(--mark-ok)}
 .evidence[data-judged]:not([data-expanded])>:not(.ev-head){display:none}
