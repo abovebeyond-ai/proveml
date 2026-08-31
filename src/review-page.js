@@ -110,7 +110,7 @@ export function reviewPage(opts) {
 <div class="wrap">
 <h1 class="lockup">${MERKTEKEN}<span class="pml-name">proveml</span><span class="tool">${esc(name)}</span></h1>
 <p class="statline">store ${esc(storeName)}, ${subjects.length} ${esc(subjectsWord)}: <b>${verified}/${total} claims machine-verified</b>, built ${built}.</p>
-<div class="reviewbar"><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-pill">next unjudged</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
+<div class="reviewbar"><span class="rv-nav"><button id="rv-prev-src" class="rv-pill rv-arrow" aria-label="previous source">\u2191</button><button id="rv-next-src" class="rv-pill rv-arrow" aria-label="next source">\u2193</button></span><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-pill">next unjudged</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
 ${cards}
 </div>${committedTag}<script>${SCRIPT}</script></body></html>`;
 
@@ -165,7 +165,7 @@ a{color:var(--accent)}
 .statline{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.85rem;color:var(--muted);margin:0 0 2.5rem}
 .statline b{color:var(--mark-ok);font-weight:500}
 .reviewbar{position:sticky;top:0;z-index:6;display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin:2rem 0 2.5rem;padding:.8rem 0;background:var(--sky);border-bottom:1px solid var(--haze-line);font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.85rem;color:var(--muted)}
-.rv-meter{flex:0 0 9rem;height:5px;background:var(--tint)}
+.rv-meter{flex:1 1 auto;min-width:6rem;height:5px;background:var(--tint)}
 .rv-fill{height:100%;width:0;background:var(--accent);transition:width .25s}
 .rv-actions{margin-left:auto;display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap}
 .rv-pill{font-family:inherit;font-size:.8rem;letter-spacing:.02em;background:none;border:1px solid var(--haze-line);border-radius:999px;padding:.35rem .85rem;color:var(--ink);cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease;-webkit-tap-highlight-color:transparent}
@@ -173,6 +173,8 @@ a{color:var(--accent)}
 .rv-pill:active{background:var(--accent);border-color:var(--accent);color:var(--card)}
 .rv-pill:focus{outline:none}
 .rv-pill:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rv-nav{display:flex;gap:.4rem}
+.rv-arrow{padding:.25rem .6rem;font-size:.9rem;line-height:1.4;color:var(--muted)}
 #rv-progress{font-family:Lato,sans-serif;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
 .rv-link{font-family:inherit;font-size:inherit;background:none;border:none;padding:0;color:var(--muted);cursor:pointer;text-decoration:underline;text-decoration-color:var(--haze-line);text-underline-offset:.3em;transition:color .2s ease,text-decoration-color .2s ease}
 .rv-link:hover{color:var(--accent);text-decoration-color:var(--accent)}
@@ -181,14 +183,14 @@ a{color:var(--accent)}
 .rv-filter{display:flex;gap:.45rem;align-items:center;cursor:pointer;transition:color .2s ease}
 .rv-filter:hover{color:var(--ink)}
 .rv-filter input{accent-color:var(--accent);width:.9em;height:.9em;margin:0}
-.pair{border-top:1px solid var(--haze-line);padding:1.6rem 0 1.2rem}
+.pair{border-top:1px solid var(--haze-line);padding:1.6rem 0 1.2rem;scroll-margin-top:3.4rem}
 .reviewbar+.pair{border-top:none}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1rem;align-items:start}
 .col:first-child{position:sticky;top:8.6rem}
 @media (max-width:52rem){.cols{grid-template-columns:1fr}.col:first-child{position:static}.pair>header{position:static}}
 .col{background:var(--card);border:1px solid var(--haze-line);border-radius:4px;padding:1rem 1.2rem;font-size:1rem}
 .lbl{margin-bottom:.6rem;color:var(--muted)}
-.col p{margin:0 0 .8rem}.note{color:var(--muted);font-size:.9rem}.quote{font-style:italic;margin-bottom:.35rem}
+.col p{margin:0 0 .8rem}.note{color:var(--muted);font-size:.9rem}.quote{font-style:italic;margin:0 0 .35rem;padding-left:.85rem;border-left:2px solid var(--haze-line)}
 .evidence{padding:.7rem 0;border-top:1px dashed var(--haze-line)}
 .evidence:first-child{border-top:none;padding-top:0}
 .ev-head{margin:0 0 .4rem}.ev-head code{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.82rem}
@@ -222,7 +224,7 @@ button.rv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .evidence[data-judged=flag] .ev-head:after{content:"\u2691 flagged";color:var(--mark-bad)}
 .evidence[data-judged][data-expanded] .ev-head{cursor:pointer}
 body[data-only-unjudged] .pair[data-all-judged]{display:none}
-.reading{color:var(--muted)}
+.reading{color:var(--muted);background:rgba(14,36,51,.04);border-radius:4px;padding:.65rem .8rem;margin-top:.55rem}
 .reading .j{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.68rem;letter-spacing:.07em;border:1px dashed var(--haze-line);border-radius:999px;padding:.12em .55em;margin-right:.4em;color:var(--muted)}
 .loc{margin:0 0 1rem}.loc b{font-weight:500;color:var(--mark-ok)}.loc a{color:var(--muted)}
 .proveml-entity.proveml-verified{color:var(--mark-ok);border:1px solid var(--mark-ok-lijn);border-radius:2px;padding:.05em .35em}
@@ -293,6 +295,13 @@ document.addEventListener('click', (e) => {
             if (p.hasAttribute('data-all-judged')) p.toggleAttribute('data-open');
             else p.toggleAttribute('data-closed');
         }
+    }
+    if (e.target.id === 'rv-prev-src' || e.target.id === 'rv-next-src') {
+        const ps = [...document.querySelectorAll('.pair')];
+        let ci = -1;
+        ps.forEach((p, i) => { if (p.getBoundingClientRect().top <= 70) ci = i; });
+        const t = ps[e.target.id === 'rv-next-src' ? Math.min(ci + 1, ps.length - 1) : Math.max(ci - 1, 0)];
+        if (t) t.scrollIntoView({ behavior: 'smooth' });
     }
     if (e.target.id === 'rv-next') {
         const saved = merged();
