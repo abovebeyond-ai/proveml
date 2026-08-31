@@ -136,8 +136,8 @@ function evidenceBlock(s, e, snapshots, ids) {
         throw new Error(`${s.id}.${e.field}: unknown basis "${e.basis}".`);
     }
     return `<div class="evidence" data-evidence-field="${attr(e.field)}"><p class="ev-head"><code>${esc(e.field)}</code> = <b>${esc(String(e.claimValue))}</b></p>${body}${e.note ? `<p class="note">${esc(e.note)}</p>` : ''}
-<div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"><p><span class="j">our reading</span> is this a fair basis for <code>${esc(e.field)} = ${esc(String(e.claimValue))}</code>?</p>
-<div class="review"><button class="rv" data-verdict="fair">fair reading</button><button class="rv" data-verdict="flag">flag</button><span class="rv-state"></span></div></div></div>`;
+<div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"><span class="j">our reading</span><span class="q">a fair reading of the evidence?</span>
+<div class="review"><button class="rv" data-verdict="fair">fair</button><button class="rv" data-verdict="flag">flag</button><span class="rv-state"></span></div></div></div>`;
 }
 
 /** The ProveML mark: a claim, and the record beneath it that must carry it. */
@@ -192,7 +192,7 @@ a{color:var(--accent)}
 @media (max-width:52rem){.cols{grid-template-columns:1fr}.col:first-child{position:static}.pair>header{position:static}}
 .col{background:var(--card);border:1px solid var(--haze-line);border-radius:4px;padding:1rem 1.2rem;font-size:1rem}
 .lbl{margin-bottom:.6rem;color:var(--muted)}
-.col p{margin:0 0 .8rem}.note{color:var(--muted);font-size:.9rem}.quote{font-style:italic;margin:0 0 .35rem;padding-left:.85rem;border-left:2px solid var(--haze-line)}
+.col p{margin:0 0 .8rem}.note{color:var(--muted);font-size:.9rem}.quote{font-style:italic;font-size:.95rem;margin:0 0 .35rem;padding-left:.85rem;border-left:2px solid var(--haze-line)}
 .evidence{padding:.7rem 0;border-top:1px dashed var(--haze-line)}
 .evidence:first-child{border-top:none;padding-top:0}
 .ev-head{margin:0 0 .4rem}.ev-head code{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.82rem}
@@ -200,7 +200,7 @@ a{color:var(--accent)}
 .basis-derived{color:var(--muted)}
 .basis-absence{color:var(--mark-unk)}
 .evidence.paired{background:var(--mark-inf-vlak);border-radius:3px;box-shadow:0 0 0 6px var(--mark-inf-vlak)}
-.review{display:flex;gap:.5rem;align-items:center;margin:.5rem 0 0}
+.review{display:flex;gap:.5rem;align-items:center;margin:0 0 0 auto}
 button.rv{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.72rem;letter-spacing:.04em;padding:.3rem .7rem;border:1px solid var(--haze-line);border-radius:999px;background:none;color:var(--muted);cursor:pointer;transition:background .12s,color .12s,border-color .12s,opacity .12s;-webkit-tap-highlight-color:transparent}
 button.rv:hover{border-color:var(--muted);color:var(--ink)}
 button.rv:focus{outline:none}
@@ -226,9 +226,10 @@ button.rv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .evidence[data-judged=flag] .ev-head:after{content:"\u2691 flagged";color:var(--mark-bad)}
 .evidence[data-judged][data-expanded] .ev-head{cursor:pointer}
 body[data-only-unjudged] .pair[data-all-judged]{display:none}
-.reading{color:var(--muted);background:rgba(14,36,51,.04);border-radius:4px;padding:.65rem .8rem;margin-top:.55rem}
+.reading{color:var(--muted);background:rgba(14,36,51,.04);border-radius:4px;padding:.45rem .7rem;margin-top:.55rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.reading .q{font-size:.92rem}
 .reading .j{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.68rem;letter-spacing:.07em;border:1px dashed var(--haze-line);border-radius:999px;padding:.12em .55em;margin-right:.4em;color:var(--muted)}
-.loc{margin:0 0 1rem}.loc b{font-weight:500;color:var(--mark-ok)}.loc a{color:var(--muted)}
+.loc{margin:0 0 1rem}.loc b{font-weight:500;color:var(--muted)}.loc a{color:var(--muted)}
 .proveml-entity.proveml-verified{color:var(--mark-ok);border:1px solid var(--mark-ok-lijn);border-radius:2px;padding:.05em .35em}
 .proveml-fact.proveml-verified{color:var(--mark-ok);border-bottom:1.5px dotted var(--mark-ok)}
 .proveml-mismatch,.proveml-name-mismatch{color:var(--mark-bad);text-decoration:line-through;text-decoration-color:var(--mark-bad-lijn)}
