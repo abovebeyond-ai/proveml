@@ -109,7 +109,7 @@ export function reviewPage(opts) {
 
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProveML ${esc(name)}</title><style>${CSS}</style></head><body>
 <div class="wrap">
-<div class="reviewbar"><h1 class="lockup">${MERKTEKEN}<span class="pml-name">proveml</span><span class="tool">${esc(name)}</span></h1><span class="rv-nav"><button id="rv-prev-src" class="rv-pill rv-arrow" aria-label="previous source">\u2191</button><button id="rv-next-src" class="rv-pill rv-arrow" aria-label="next source">\u2193</button></span><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-pill">next unjudged</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
+<div class="reviewbar"><h1 class="lockup">${MERKTEKEN}<span class="pml-name">proveml</span><span class="tool">${esc(name)}</span></h1><span class="rv-nav"><button id="rv-prev-src" class="rv-pill rv-arrow" aria-label="previous source">\u2191</button><button id="rv-next-src" class="rv-pill rv-arrow" aria-label="next source">\u2193</button></span><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-pill">next unjudged</button><button id="rv-literal" class="rv-link">confirm literal readings</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
 <p class="statline">store ${esc(storeName)}, ${subjects.length} ${esc(subjectsWord)}: <b>${verified}/${total} claims machine-verified</b>, built ${built}.</p>
 ${cards}
 </div>${committedTag}<script>${SCRIPT}</script></body></html>`;
@@ -117,9 +117,18 @@ ${cards}
     return { html, verified, total, ids };
 }
 
+function isLiteral(e) {
+    if (e.basis !== 'quote') return false;
+    const quotes = e.sourceQuotes ? e.sourceQuotes.map((q) => q.sourceQuote) : [e.sourceQuote];
+    const v = squash(String(e.claimValue)).toLowerCase();
+    if (!v) return false;
+    return quotes.some((q) => squash(String(q || '')).toLowerCase().includes(v));
+}
+
 function evidenceBlock(s, e, snapshots, ids) {
     const rid = evidenceReviewId(s.id, e);
     ids.push(rid);
+    const literal = isLiteral(e);
     let body;
     if (e.basis === 'quote') {
         // One value may rest on several quotes: a composite label whose
@@ -152,8 +161,8 @@ function evidenceBlock(s, e, snapshots, ids) {
     } else {
         throw new Error(`${s.id}.${e.field}: unknown basis "${e.basis}".`);
     }
-    return `<div class="evidence" data-evidence-field="${attr(e.field)}"><p class="ev-head"><code>${esc(e.field)}</code> = <b>${esc(String(e.claimValue))}</b></p>${body}${e.note ? `<p class="note">${esc(e.note)}</p>` : ''}
-<div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"><span class="j">our reading</span><span class="q">a fair reading of the evidence?</span>
+    return `<div class="evidence" data-evidence-field="${attr(e.field)}"${literal ? ' data-literal' : ''}><p class="ev-head"><code>${esc(e.field)}</code> = <b>${esc(String(e.claimValue))}</b>${literal ? '<span class="lit">value appears in the quote</span>' : ''}</p>${body}${e.note ? `<p class="note">${esc(e.note)}</p>` : ''}
+<div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"${literal ? ' data-literal' : ''}><span class="j">our reading</span><span class="q">${literal ? 'literal: the value is in the quote' : 'a fair reading of the evidence?'}</span>
 <div class="review"><button class="rv" data-verdict="fair">fair</button><button class="rv" data-verdict="flag">flag</button><span class="rv-state"></span></div></div></div>`;
 }
 
@@ -235,6 +244,10 @@ button.rv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .nr{font-family:Lato,sans-serif;font-size:.95rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted);margin-right:.65rem}
 .pair[data-closed] .cols,.pair[data-all-judged]:not([data-open]) .cols{display:none}
 .pair[data-all-judged] .meta:after{content:" All readings judged.";color:var(--mark-ok)}
+.lit{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.7rem;color:var(--muted);margin-left:.6em}
+.evidence[data-literal]:not([data-judged]):not([data-expanded])>:not(.ev-head){display:none}
+.evidence[data-literal]:not([data-judged]):not([data-expanded]){cursor:pointer;padding:.45rem 0}
+.evidence[data-literal]:not([data-judged]):not([data-expanded]) .ev-head{margin:0}
 .evidence[data-judged]:not([data-expanded])>:not(.ev-head){display:none}
 .evidence[data-judged]:not([data-expanded]){cursor:pointer;padding:.45rem 0}
 .evidence[data-judged]:not([data-expanded]) .ev-head{margin:0;opacity:.85}
@@ -284,8 +297,12 @@ function paint() {
         card.toggleAttribute('data-all-judged', rs.length > 0 && rs.every(r => saved[r.dataset.review]));
         card.toggleAttribute('data-flagged', rs.some(r => (saved[r.dataset.review] || {}).verdict === 'flag'));
     }
+    const needEye = readings.filter((r) => !r.hasAttribute('data-literal') && !saved[r.dataset.review]).length;
+    const litOpen = readings.filter((r) => r.hasAttribute('data-literal') && !saved[r.dataset.review]).length;
     document.getElementById('rv-progress').textContent =
-        judged + '/' + readings.length + ' judged' + (flagged ? ', ' + flagged + ' flagged' : '');
+        judged + '/' + readings.length + ' judged' + (flagged ? ', ' + flagged + ' flagged' : '')
+        + (judged < readings.length ? ' \u00B7 ' + needEye + ' need you, ' + litOpen + ' literal' : '');
+    const lb = document.getElementById('rv-literal'); if (lb) lb.style.display = litOpen ? '' : 'none';
     document.querySelector('.rv-fill').style.width = (readings.length ? Math.round(judged / readings.length * 100) : 0) + '%';
     document.getElementById('rv-next').style.display = judged === readings.length ? 'none' : '';
 }
@@ -303,8 +320,14 @@ document.addEventListener('click', (e) => {
         persist(); paint(); b.blur();
         if (merged()[id]) el.closest('.evidence')?.removeAttribute('data-expanded');
     }
+    if (e.target.id === 'rv-literal') {
+        for (const r of readings) if (r.hasAttribute('data-literal') && !merged()[r.dataset.review]) {
+            local[r.dataset.review] = { verdict: 'fair', src: r.dataset.src, field: r.dataset.field, literal: true, at: new Date().toISOString() };
+        }
+        persist(); paint();
+    }
     if (!b) {
-        const ev = e.target.closest('.evidence[data-judged]');
+        const ev = e.target.closest('.evidence[data-judged], .evidence[data-literal]:not([data-judged])');
         if (ev && !e.target.closest('a')) {
             if (!ev.hasAttribute('data-expanded')) ev.setAttribute('data-expanded', '');
             else if (e.target.closest('.ev-head')) ev.removeAttribute('data-expanded');
