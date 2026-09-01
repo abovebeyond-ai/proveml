@@ -97,6 +97,20 @@ console.log('\n=== review-page: several quotes under one value ===');
     assert('single-quote hashes are unchanged by the feature', evidenceReviewId('x', single) === evidenceReviewId('x', { ...single, sourceQuotes: undefined }));
 }
 
+console.log('\n=== review-page: literal readings are triaged ===');
+{
+    const r = reviewPage({ store, subjects, snapshots });
+    assert('a value that sits in its quote is marked literal', /data-evidence-field="category"[^>]*data-literal/.test(r.html) === false && r.html.includes('confirm literal readings'));
+    const lit = [{ ...subjects[0], evidence: [{ field: 'category', claimValue: 'inline financial tagging standard', basis: 'quote', sourceQuote: 'iXBRL embeds extra tags into the HTML standard', sourceLocator: 'p3' },
+        { field: 'inlineSupport', claimValue: 'yes', basis: 'derived' }] }];
+    const store2 = { ...store, 'tool:ixbrl.category': 'inline financial tagging standard' };
+    const r2 = reviewPage({ store: store2, subjects: lit, snapshots });
+    assert('not literal when the value is absent from the quote', !/data-review="[^"]*" data-src="ixbrl" data-field="category"[^>]*data-literal/.test(r2.html));
+    const lit2 = [{ ...subjects[0], evidence: [{ field: 'category', claimValue: 'extra tags', basis: 'quote', sourceQuote: 'iXBRL embeds extra tags into the HTML standard' }] }];
+    const r3 = reviewPage({ store: { ...store, 'tool:ixbrl.category': 'extra tags' }, subjects: [{ ...lit2[0], claim: '@[tool:ixbrl]{iXBRL} is %[category]{extra tags}.' }], snapshots });
+    assert('literal when the value is inside the quote', /data-field="category" data-literal/.test(r3.html));
+}
+
 console.log('\n=== review-page: committed review is baked in ===');
 {
     const id = evidenceReviewId('ixbrl', subjects[0].evidence[0]);
