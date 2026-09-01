@@ -44,10 +44,10 @@ if (prev === markup) {
     line = `(ˆ_ˆ) turn unchanged: ${v.verified}/${v.total} verified`;
 } else if (prev) {
     const d = diffTurns(prev, markup, store, opts);
-    line = (d.clean ? '(ˆ◡ˆ) ' : '(ˆoˆ)? ') + formatTurnDiff(d);
+    line = (d.clean ? '(ˆ◡ˆ) ' : '(ˆoˆ)⌕ ') + formatTurnDiff(d);
     ok = ok && d.clean;
 } else {
-    line = `${v.errors.length ? '(ˆoˆ)?' : '(ˆ◡ˆ)'} first turn: ${v.verified}/${v.total} verified, coverage ${v.coverage.rate === null ? 'n/a' : Math.round(v.coverage.rate * 100) + '%'}`;
+    line = `${v.errors.length ? '(ˆoˆ)⌕' : '(ˆ◡ˆ)'} first turn: ${v.verified}/${v.total} verified, coverage ${v.coverage.rate === null ? 'n/a' : Math.round(v.coverage.rate * 100) + '%'}`;
 }
 
 if (prev !== markup) {
