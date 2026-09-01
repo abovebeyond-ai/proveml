@@ -30,6 +30,12 @@ import { summarize } from './review.js';
  * @param {string} [opts.signedBy]  recorded on the review before the signer runs
  * @param {boolean} [opts.open=true]  open the page in the default browser
  * @param {number} [opts.port=0]  0 picks a free port
+ * @param {string} [opts.pageScript]  extra script injected into the served
+ *   page, before the closing body tag. This is the extension point for
+ *   signers that must act in the browser (a passkey assertion, for one):
+ *   the script may listen for the 'proveml:signing' CustomEvent fired on
+ *   document before the review posts, and set event.detail.extra fields
+ *   that travel with the POST body.
  * @param {Record<string, string>} [opts.assets]  url prefix to directory map;
  *   GETs under a prefix serve files from its directory (the archived
  *   snapshots the page's evidence links point at), path traversal refused
@@ -39,12 +45,13 @@ import { summarize } from './review.js';
  *   the signed review, so unjudged and orphaned are visible to the caller
  */
 export function awaitReview(opts) {
-    const { signer, signedBy, open = true, port = 0, onServe, assets = {}, ...pageOpts } = opts;
+    const { signer, signedBy, open = true, port = 0, onServe, assets = {}, pageScript, ...pageOpts } = opts;
     const { html, ids } = reviewPage(pageOpts);
     // The page shows its "sign review" button only when this flag exists:
     // served by this flow, the gate is submittable; opened as a file, it is
     // a checklist with a clipboard.
-    const page = html.replace('</head>', '<script>window.PROVEML_REVIEW_SUBMIT="/review"</script></head>');
+    let page = html.replace('</head>', '<script>window.PROVEML_REVIEW_SUBMIT="/review"</script></head>');
+    if (pageScript) page = page.replace('</body>', `<script>${pageScript}</script></body>`);
 
     return new Promise((resolvePromise, reject) => {
         let served = '';

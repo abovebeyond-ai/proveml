@@ -36,12 +36,14 @@ console.log('\n=== review-flow: the gate is one awaitable step ===');
         signedBy: 'test-reviewer',
         signer: (review) => { signerSaw = review; return { ...review, signature: 'adapter-was-here' }; },
         assets: { '/snap/': 'audit-snapshots-test-dir' },
+        pageScript: "window.__EXTENSION_POINT__ = 'here';",
         onServe: async (url) => {
             const page = await (await fetch(url)).text();
             assert('an asset under a prefix serves', (await fetch(url + 'snap/a.txt')).status === 200 && (await (await fetch(url + 'snap/a.txt')).text()) === 'snapshot body');
             assert('a path outside the prefix is 404', (await fetch(url + 'nope.html')).status === 404);
             assert('traversal is refused', [403, 404].includes((await fetch(url + 'snap/../review-flow.test.js')).status));
             assert('served page is submittable', page.includes('PROVEML_REVIEW_SUBMIT'));
+            assert('pageScript is injected', page.includes("__EXTENSION_POINT__") && page.includes('proveml:signing'));
             assert('served page carries the readings', page.includes(`data-review="${fairId}"`));
             const res = await fetch(`${url}review`, {
                 method: 'POST',

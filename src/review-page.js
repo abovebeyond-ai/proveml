@@ -344,8 +344,13 @@ if (window.PROVEML_REVIEW_SUBMIT) {
     const btn = document.createElement('button');
     btn.id = 'rv-sign'; btn.className = 'rv-pill'; btn.textContent = 'sign review';
     document.querySelector('.rv-actions').prepend(btn);
-    btn.addEventListener('click', () => {
-        fetch(window.PROVEML_REVIEW_SUBMIT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ exported: new Date().toISOString(), judgements: merged() }) })
+    btn.addEventListener('click', async () => {
+        // Browser-side signers hook in here: the event's detail.extra travels
+        // with the POST, and a handler may return a promise via detail.wait.
+        const detail = { review: { judgements: merged() }, extra: {}, wait: null };
+        document.dispatchEvent(new CustomEvent('proveml:signing', { detail }));
+        try { if (detail.wait) await detail.wait; } catch (e) { btn.textContent = 'signing failed'; setTimeout(() => { btn.textContent = 'sign review'; }, 2000); return; }
+        fetch(window.PROVEML_REVIEW_SUBMIT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ exported: new Date().toISOString(), judgements: merged(), ...detail.extra }) })
             .then((r) => { if (r.ok) { btn.textContent = 'signed'; btn.disabled = true; } });
     });
 }
