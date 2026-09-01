@@ -1,5 +1,9 @@
 import { awaitReview } from './review-flow.js';
 import { evidenceReviewId } from './review-page.js';
+import { mkdirSync, writeFileSync, rmSync } from 'fs';
+mkdirSync('audit-snapshots-test-dir', { recursive: true });
+writeFileSync('audit-snapshots-test-dir/a.txt', 'snapshot body');
+process.on('exit', () => rmSync('audit-snapshots-test-dir', { recursive: true, force: true }));
 
 let passed = 0, failed = 0;
 function assert(name, condition, detail = '') {
@@ -31,8 +35,12 @@ console.log('\n=== review-flow: the gate is one awaitable step ===');
         open: false,
         signedBy: 'test-reviewer',
         signer: (review) => { signerSaw = review; return { ...review, signature: 'adapter-was-here' }; },
+        assets: { '/snap/': 'audit-snapshots-test-dir' },
         onServe: async (url) => {
             const page = await (await fetch(url)).text();
+            assert('an asset under a prefix serves', (await fetch(url + 'snap/a.txt')).status === 200 && (await (await fetch(url + 'snap/a.txt')).text()) === 'snapshot body');
+            assert('a path outside the prefix is 404', (await fetch(url + 'nope.html')).status === 404);
+            assert('traversal is refused', [403, 404].includes((await fetch(url + 'snap/../review-flow.test.js')).status));
             assert('served page is submittable', page.includes('PROVEML_REVIEW_SUBMIT'));
             assert('served page carries the readings', page.includes(`data-review="${fairId}"`));
             const res = await fetch(`${url}review`, {

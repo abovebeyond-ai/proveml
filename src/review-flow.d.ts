@@ -17,6 +17,8 @@ export interface AwaitReviewOptions extends ReviewPageOptions {
   open?: boolean;
   /** 0 picks a free port. Default 0. */
   port?: number;
+  /** Url prefix to directory map; GETs under a prefix serve files from its directory, so the page's archived-source links resolve while the gate is up. */
+  assets?: Record<string, string>;
   onServe?: (url: string) => void;
 }
 

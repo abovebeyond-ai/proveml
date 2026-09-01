@@ -15,6 +15,8 @@
  */
 
 import { createServer } from 'http';
+import { readFileSync } from 'fs';
+import { resolve, sep } from 'path';
 import { exec } from 'child_process';
 import { reviewPage } from './review-page.js';
 import { summarize } from './review.js';
@@ -28,13 +30,16 @@ import { summarize } from './review.js';
  * @param {string} [opts.signedBy]  recorded on the review before the signer runs
  * @param {boolean} [opts.open=true]  open the page in the default browser
  * @param {number} [opts.port=0]  0 picks a free port
+ * @param {Record<string, string>} [opts.assets]  url prefix to directory map;
+ *   GETs under a prefix serve files from its directory (the archived
+ *   snapshots the page's evidence links point at), path traversal refused
  * @param {(url: string) => void} [opts.onServe]  called with the page url
  * @returns {Promise<{ review: object, summary: import('./review.js').ReviewSummary, url: string }>}
  *   resolves when the human signs; summary counts the page's readings against
  *   the signed review, so unjudged and orphaned are visible to the caller
  */
 export function awaitReview(opts) {
-    const { signer, signedBy, open = true, port = 0, onServe, ...pageOpts } = opts;
+    const { signer, signedBy, open = true, port = 0, onServe, assets = {}, ...pageOpts } = opts;
     const { html, ids } = reviewPage(pageOpts);
     // The page shows its "sign review" button only when this flag exists:
     // served by this flow, the gate is submittable; opened as a file, it is
@@ -45,8 +50,28 @@ export function awaitReview(opts) {
         let served = '';
         const server = createServer((req, res) => {
             if (req.method === 'GET') {
-                res.setHeader('content-type', 'text/html; charset=utf-8');
-                res.end(page);
+                const path = decodeURIComponent((req.url || '/').split('?')[0]);
+                if (path === '/' || path === '/index.html') {
+                    res.setHeader('content-type', 'text/html; charset=utf-8');
+                    res.end(page);
+                    return;
+                }
+                for (const [prefix, dir] of Object.entries(assets)) {
+                    if (!path.startsWith(prefix)) continue;
+                    const rootDir = resolve(dir);
+                    const file = resolve(rootDir, path.slice(prefix.length));
+                    if (file !== rootDir && !file.startsWith(rootDir + sep)) { res.statusCode = 403; res.end(); return; }
+                    try {
+                        const body = readFileSync(file);
+                        res.setHeader('content-type', file.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8');
+                        res.end(body);
+                    } catch {
+                        res.statusCode = 404; res.end();
+                    }
+                    return;
+                }
+                res.statusCode = 404;
+                res.end();
                 return;
             }
             if (req.method === 'POST' && req.url === '/review') {
