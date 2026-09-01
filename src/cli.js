@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { readFileSync, writeFileSync, readdirSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, cpSync, existsSync } from 'fs';
+import { homedir } from 'os';
 import { resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { stdin, stdout, stderr, exit } from 'process';
@@ -36,6 +37,9 @@ try {
             break;
         case 'review':
             await runReview(argv);
+            break;
+        case 'skill':
+            runSkill(argv);
             break;
         case 'example':
         case 'examples':
@@ -248,6 +252,52 @@ async function runReview(argv) {
     else stdout.write(html);
     stderr.write(`${verified}/${total} claims machine-verified\n`);
     exit(0);
+}
+
+/**
+ * Install a bundled skill (Vera) into an agent's skills folder. The skill is
+ * a SKILL.md folder per the Agent Skills open standard, so the same files
+ * serve every agent that reads it; only the destination differs. proveml
+ * itself is installed inside the skill folder so nothing touches the user's
+ * project.
+ */
+function runSkill(argv) {
+    const args = parseArgs(argv);
+    const action = args._[0] || 'install';
+    const name = args._[1] || 'vera';
+    if (action !== 'install') throw new Error(`Unknown skill action "${action}". Try: proveml skill install [vera] [--for claude|codex|gemini|cursor|copilot|all] [--project]`);
+    const here = new URL('.', import.meta.url).pathname;
+    const src = resolve(here, '..', 'skills', name);
+    if (!existsSync(src)) throw new Error(`No bundled skill named "${name}".`);
+    const HOMES = {
+        claude: ['.claude', 'skills'],
+        codex: ['.codex', 'skills'],
+        gemini: ['.gemini', 'skills'],
+        cursor: ['.cursor', 'skills'],
+        copilot: ['.copilot', 'skills'],
+    };
+    const targets = args.for === 'all' ? Object.keys(HOMES) : [(typeof args.for === 'string' ? args.for : 'claude')];
+    for (const t of targets) {
+        if (!HOMES[t]) throw new Error(`Unknown agent "${t}". Known: ${Object.keys(HOMES).join(', ')}, all`);
+        const base = args.project ? resolve(process.cwd(), '.' + t, 'skills') : resolve(homedir(), ...HOMES[t]);
+        const dest = resolve(base, name);
+        mkdirSync(base, { recursive: true });
+        cpSync(src, dest, { recursive: true });
+        // proveml lives inside the skill folder, so the skill needs nothing from the
+        // project. It is a copy of the very package running this installer: no
+        // network, no version drift between the installer and what it installs.
+        const pkgRoot = resolve(here, '..');
+        const modDir = resolve(dest, 'node_modules', 'proveml');
+        mkdirSync(modDir, { recursive: true });
+        for (const f of ['package.json', 'LICENSE', 'README.md']) if (existsSync(resolve(pkgRoot, f))) cpSync(resolve(pkgRoot, f), resolve(modDir, f));
+        cpSync(resolve(pkgRoot, 'src'), resolve(modDir, 'src'), { recursive: true, filter: (p) => !/\.test\.js$/.test(p) });
+        const bin = resolve(dest, 'node_modules', '.bin');
+        mkdirSync(bin, { recursive: true });
+        writeFileSync(resolve(bin, 'proveml'), '#!/bin/sh\nexec node "$(dirname "$0")/../proveml/src/cli.js" "$@"\n', { mode: 0o755 });
+        writeFileSync(resolve(dest, 'package.json'), JSON.stringify({ name: `${name}-skill`, private: true, type: 'module' }, null, 2) + '\n');
+        stdout.write(`installed ${name} for ${t}: ${dest}\n`);
+    }
+    stdout.write(`\nsay /${name} in your agent. ${name === 'vera' ? 'Before you send it, ask Vera.' : ''}\n`);
 }
 
 function runPrompt(argv) {
@@ -491,6 +541,7 @@ Usage:
   npx proveml render --input report.md --facts facts.json [--proof-paths] [--css] [--output out.html]
   npx proveml example [verifyCorrect|verifySuggestions|verifyErrors] [--json]
   npx proveml prompt --facts facts.json [--thresholds registry.json] [--role "..."] [--data]
+  npx proveml skill install [vera] [--for claude|codex|gemini|cursor|copilot|all] [--project]
   npx proveml review --facts facts.json --evidence subjects.json [--snapshots dir] [--committed review.json] [--output page.html]
   npx proveml review --facts facts.json --evidence subjects.json --await [--out review.json] [--signer signer.mjs] [--signed-by name] [--no-open]
 
