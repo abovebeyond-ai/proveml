@@ -65,6 +65,10 @@
     "./manifest": {
       "types": "./src/manifest.d.ts",
       "default": "./src/manifest.js"
+    },
+    "./diff": {
+      "types": "./src/diff.d.ts",
+      "default": "./src/diff.js"
     }
   },
   "files": [
@@ -75,6 +79,8 @@
     "src/annotate.js",
     "src/cli.js",
     "src/core.js",
+    "src/diff.d.ts",
+    "src/diff.js",
     "src/index.d.ts",
     "src/manifest.d.ts",
     "src/manifest.js",
@@ -103,7 +109,7 @@
     "src/verify.js"
   ],
   "scripts": {
-    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js && node src/prompt.test.js && node src/review.test.js && node src/review-page.test.js && node src/review-flow.test.js && node src/manifest.test.js",
+    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js && node src/prompt.test.js && node src/review.test.js && node src/review-page.test.js && node src/review-flow.test.js && node src/manifest.test.js && node src/diff.test.js",
     "test:plugin": "node src/proveml.test.js",
     "test:grammar": "node src/grammar.test.js",
     "test:cli": "node src/cli.test.js",
@@ -113,7 +119,8 @@
     "test:review": "node src/review.test.js",
     "test:review-page": "node src/review-page.test.js",
     "test:review-flow": "node src/review-flow.test.js",
-    "test:manifest": "node src/manifest.test.js"
+    "test:manifest": "node src/manifest.test.js",
+    "test:diff": "node src/diff.test.js"
   },
   "keywords": [
     "proveml",
