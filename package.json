@@ -109,7 +109,7 @@
     "src/verify.js"
   ],
   "scripts": {
-    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js && node src/prompt.test.js && node src/review.test.js && node src/review-page.test.js && node src/review-flow.test.js && node src/manifest.test.js && node src/diff.test.js",
+    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js && node src/prompt.test.js && node src/review.test.js && node src/review-page.test.js && node src/review-flow.test.js && node src/manifest.test.js && node src/diff.test.js && node src/attacks.test.js",
     "test:plugin": "node src/proveml.test.js",
     "test:grammar": "node src/grammar.test.js",
     "test:cli": "node src/cli.test.js",
@@ -120,7 +120,8 @@
     "test:review-page": "node src/review-page.test.js",
     "test:review-flow": "node src/review-flow.test.js",
     "test:manifest": "node src/manifest.test.js",
-    "test:diff": "node src/diff.test.js"
+    "test:diff": "node src/diff.test.js",
+    "test:attacks": "node src/attacks.test.js"
   },
   "keywords": [
     "proveml",

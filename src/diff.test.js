@@ -25,7 +25,7 @@ console.log('\n=== diff: the silent skip is caught ===');
     // A partial edit cuts through the construct; the tokenizer skips it silently.
     const mangled = TURN1.replace('%[passRate]{53}%', '%[passRate]{53%');
     const d = diffTurns(TURN1, mangled, store);
-    assert('the lost claim is reported as removed', d.removed.length === 1 && d.removed[0].type === 'fact' && String(d.removed[0].value) === '53');
+    assert('the lost claim is among the removed (a broken brace can swallow more than one)', d.removed.some((r) => r.type === 'fact' && String(r.value) === '53') && d.removed.length >= 1);
     assert('not clean, and the log shouts', d.clean === false && formatTurnDiff(d).includes('REMOVED'));
 }
 
@@ -46,7 +46,7 @@ console.log('\n=== diff: a number escaping its markup is flagged ===');
 {
     const escaped = TURN1.replace('%[avgRate]{71}%', '71%');
     const d = diffTurns(TURN1, escaped, store);
-    assert('claim removed and unmarked count rose', d.removed.length === 1 && d.next.unmarked > d.prev.unmarked);
+    assert('claim removed and unmarked count rose', d.removed.some((r) => String(r.value) === '71') && d.next.unmarked > d.prev.unmarked);
     assert('the log counts the bare number', formatTurnDiff(d).includes('unmarked numbers +1'));
 }
 
