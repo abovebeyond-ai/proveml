@@ -11,6 +11,7 @@ import { verifyProveml } from './verify.js';
 import { diffTurns } from './diff.js';
 import { buildManifest, findQuote, inclusionProof, verifyInclusion } from './manifest.js';
 import { reviewId, emptyReview, judge, summarize } from './review.js';
+import { reviewPage } from './review-page.js';
 
 let passed = 0, failed = 0;
 const assert = (name, c, d = '') => c ? (passed++, console.log(`  ok ${name}`)) : (failed++, console.error(`  FAIL ${name} ${d}`));
@@ -86,6 +87,63 @@ console.log('\n=== attack: keeping the checkmark while changing what was checked
     const review = judge(emptyReview(), id, 'fair');
     const after = summarize(review, [reviewId('src', 'field', 'value', 'quote v2')]);
     assert('the old judgement is orphaned, not inherited', after.judged === 0 && after.orphaned.includes(id));
+}
+
+console.log('\n=== attack: the same pixels, different bytes ===');
+{
+    const nfc = 'Caf\u00E9 prices rose.';
+    const nfd = 'Cafe\u0301 prices rose.';
+    assert('an NFD re-encoding keeps the root (c14n-2)', buildManifest(nfc, { html: false }).root === buildManifest(nfd, { html: false }).root);
+    assert('c14n-1 had this hole, pinned as history', buildManifest(nfc, { html: false, contract: 'proveml-c14n-1' }).root !== buildManifest(nfd, { html: false, contract: 'proveml-c14n-1' }).root);
+    assert('zero-width smuggling is flattened', buildManifest('pay 1\u200B00 euro', { html: false }).root === buildManifest('pay 100 euro', { html: false }).root);
+}
+
+console.log('\n=== attack: Trojan Source, the display disagrees with the bytes ===');
+{
+    let threw = null;
+    try { buildManifest('total \u202E001\u202C euro', { html: false }); } catch (e) { threw = e.message; }
+    assert('bidi controls are refused, loudly and by name', /Trojan Source/.test(threw || ''));
+    assert('old c14n-1 manifests still verify', (() => {
+        const m = buildManifest('plain line', { html: false, contract: 'proveml-c14n-1' });
+        return verifyInclusion(m.root, m.leaves[0].text, inclusionProof(m, 0));
+    })());
+    assert('an unknown contract is refused', (() => {
+        try { buildManifest('x', { html: false, contract: 'c14n-x' }); return false; } catch { return true; }
+    })());
+}
+
+console.log('\n=== attack: the same pixels, different bytes ===');
+{
+    const nfc = 'Caf\u00E9 prices rose.';
+    const nfd = 'Cafe\u0301 prices rose.';
+    assert('an NFD re-encoding keeps the root (c14n-2)', buildManifest(nfc, { html: false }).root === buildManifest(nfd, { html: false }).root);
+    assert('c14n-1 had this hole, pinned as history', buildManifest(nfc, { html: false, contract: 'proveml-c14n-1' }).root !== buildManifest(nfd, { html: false, contract: 'proveml-c14n-1' }).root);
+    assert('zero-width smuggling is flattened', buildManifest('pay 1\u200B00 euro', { html: false }).root === buildManifest('pay 100 euro', { html: false }).root);
+}
+
+console.log('\n=== attack: Trojan Source, the display disagrees with the bytes ===');
+{
+    let threw = null;
+    try { buildManifest('total \u202E001\u202C euro', { html: false }); } catch (e) { threw = e.message; }
+    assert('bidi controls are refused, loudly and by name', /Trojan Source/.test(threw || ''));
+    assert('old c14n-1 manifests still verify', (() => {
+        const m = buildManifest('plain line', { html: false, contract: 'proveml-c14n-1' });
+        return verifyInclusion(m.root, m.leaves[0].text, inclusionProof(m, 0));
+    })());
+    assert('an unknown contract is refused', (() => {
+        try { buildManifest('x', { html: false, contract: 'c14n-x' }); return false; } catch { return true; }
+    })());
+}
+
+console.log('\n=== attack: invert the frame, keep the quoted bytes ===');
+{
+    const st = { 'r:x.name': 'The report', 'r:x.rev': '42M' };
+    const subj = [{ id: 'x', title: 'X', claim: '@[r:x]{The report} cites revenue of %[rev]{42M}.', evidence: [{ field: 'rev', claimValue: '42M', basis: 'quote', sourceQuote: 'Revenue: 42M' }] }];
+    const audited = buildManifest('Figures below are audited.\nRevenue: 42M.\nEnd of report.', { html: false });
+    const projected = buildManifest('Figures below are projections.\nRevenue: 42M.\nEnd of report.', { html: false });
+    const idOf = (h) => /data-review="([0-9a-f]+)"/.exec(h)[1];
+    assert('the quoted block is byte-identical across the two frames', audited.leaves[1].hash === projected.leaves[1].hash);
+    assert('the yes dies anyway: the neighborhood is in the key', idOf(reviewPage({ store: st, subjects: subj, manifests: { x: audited } }).html) !== idOf(reviewPage({ store: st, subjects: subj, manifests: { x: projected } }).html));
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
