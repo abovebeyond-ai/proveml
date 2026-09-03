@@ -16,7 +16,15 @@ function escapeHtml(text) {
 }
 
 function renderPlainText(text) {
-    return escapeHtml(text).replace(/\n\n/g, '</p><p class="proveml-paragraph">');
+    // Fenced blocks first, so their blank lines never become paragraph breaks.
+    return text.split(/(```[\s\S]*?```)/).map((part) => {
+        if (part.startsWith('```') && part.endsWith('```')) {
+            return `<pre class="proveml-code"><code>${escapeHtml(part.slice(3, -3).replace(/^\n|\n$/g, ''))}</code></pre>`;
+        }
+        return escapeHtml(part)
+            .replace(/`([^`\n]+)`/g, '<code class="proveml-code">$1</code>')
+            .replace(/\n\n/g, '</p><p class="proveml-paragraph">');
+    }).join('');
 }
 
 export const PROVEML_CLASSNAMES = Object.freeze({

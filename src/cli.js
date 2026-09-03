@@ -38,6 +38,9 @@ try {
         case 'review':
             await runReview(argv);
             break;
+        case 'manifest':
+            await runManifest(argv);
+            break;
         case 'skill':
             runSkill(argv);
             break;
@@ -221,13 +224,25 @@ async function runReview(argv) {
             snapshots[f.replace(/\.[^.]+$/, '')] = snapshotText(raw, { html: f.endsWith('.html') });
         }
     }
+    const manifests = {};
+    if (args.manifests) {
+        for (const f of readdirSync(args.manifests)) {
+            if (f.endsWith('.json')) manifests[f.replace(/\.json$/, '')] = JSON.parse(readFileSync(resolve(args.manifests, f), 'utf8'));
+        }
+    }
     const opts = {
         store, subjects, snapshots,
+        ...(args.manifests ? { manifests } : {}),
+        ...(args.signatures ? { signatures: JSON.parse(readFileSync(args.signatures, 'utf8')) } : {}),
         ...(args.committed ? { committedReview: JSON.parse(readFileSync(args.committed, 'utf8')) } : {}),
         ...(typeof args.name === 'string' ? { name: args.name } : {}),
         ...(args['store-name'] ? { storeName: args['store-name'] } : {}),
         ...(args['subjects-word'] ? { subjectsWord: args['subjects-word'] } : {}),
         ...(args.thresholds ? { thresholds: JSON.parse(readFileSync(args.thresholds, 'utf8')) } : {}),
+        ...(args['brand-name'] || args['brand-mark'] ? { brand: {
+            ...(args['brand-name'] ? { name: args['brand-name'] } : {}),
+            ...(args['brand-mark'] ? { mark: args['brand-mark'] } : {}),
+        } } : {}),
     };
 
     if (args.await) {
@@ -247,9 +262,14 @@ async function runReview(argv) {
         return;
     }
 
-    const { html, verified, total } = reviewPage(opts);
+    const { html, verified, total, proofs } = reviewPage(opts);
     if (args.output) writeFileSync(args.output, html, 'utf8');
     else stdout.write(html);
+    if (proofs.length && args.output) {
+        const pf = args.proofs || args.output.replace(/\.html$/, '-proofs.json');
+        writeFileSync(pf, `${JSON.stringify({ built: new Date().toISOString(), proofs }, null, 1)}\n`);
+        stderr.write(`${proofs.length} inclusion proofs written to ${pf}\n`);
+    }
     stderr.write(`${verified}/${total} claims machine-verified\n`);
     exit(0);
 }
@@ -336,6 +356,30 @@ function runExample(argv) {
     stdout.write(`${markup}\n\n`);
     stdout.write('fact store:\n');
     stdout.write(`${JSON.stringify(educationFactStore, null, 2)}\n`);
+}
+
+/**
+ * Build the merkle manifest of one archived source: canonical leaves, one
+ * root worth signing. `review --manifests` binds quotes to these leaves and
+ * emits inclusion proofs a stranger can check without trusting anyone.
+ */
+async function runManifest(argv) {
+    const args = parseArgs(argv);
+    const file = args._[0];
+    if (!file) throw new Error('Expected: proveml manifest <archived-file> [--source url] [--captured-at iso] [--out manifest.json]');
+    const raw = readFileSync(file, 'utf8');
+    const { buildManifest } = await import('./manifest.js');
+    const manifest = buildManifest(raw, {
+        html: /\.x?html?$/i.test(file),
+        ...(args.source ? { source: args.source } : {}),
+        capturedAt: args['captured-at'] || new Date().toISOString().slice(0, 10),
+    });
+    const out = JSON.stringify(manifest, null, 1);
+    if (args.out) {
+        writeFileSync(args.out, `${out}\n`);
+        stderr.write(`${manifest.leaves.length} leaves, root ${manifest.root.slice(0, 16)}\u2026 written to ${args.out}\n`);
+    } else stdout.write(`${out}\n`);
+    exit(0);
 }
 
 function parseArgs(argv) {
@@ -542,7 +586,9 @@ Usage:
   npx proveml example [verifyCorrect|verifySuggestions|verifyErrors] [--json]
   npx proveml prompt --facts facts.json [--thresholds registry.json] [--role "..."] [--data]
   npx proveml skill install [vera] [--for claude|codex|gemini|cursor|copilot|all] [--project]
-  npx proveml review --facts facts.json --evidence subjects.json [--snapshots dir] [--committed review.json] [--output page.html]
+  npx proveml manifest sources/raw/ixbrl.html --source https://example.org --out manifests/ixbrl.json
+  npx proveml manifest sources/raw/ixbrl.html --source https://example.org --out manifests/ixbrl.json
+  npx proveml review --facts facts.json --evidence subjects.json [--snapshots dir] [--committed review.json] [--output page.html] [--manifests dir] [--signatures sig.json] [--brand-name vera --brand-mark "(^_^)"]
   npx proveml review --facts facts.json --evidence subjects.json --await [--out review.json] [--signer signer.mjs] [--signed-by name] [--no-open]
 
 Notes:
@@ -555,6 +601,8 @@ Notes:
   - If no --input or --text is given, strip/verify/render read markup from stdin.
   - render prints HTML to stdout unless --output is provided.
   - prompt prints the system prompt a model needs for this store: the rules, the records and fields, the registry.
+  - manifest builds the merkle manifest of one archived source: canonical leaves, one signable root; review --manifests binds every quote to a leaf and writes the inclusion proofs beside the page.
+  - manifest builds the merkle manifest of one archived source: canonical leaves, one signable root; review --manifests binds every quote to a leaf and writes the inclusion proofs beside the page.
   - review emits the review page: every claim next to its evidence, with the judgement widget. With --await it serves the page, waits for "sign review", writes the signed review, and exits 0 only when all readings are judged and none flagged; --signer points at a module whose default export attests the review.
 `);
 }
