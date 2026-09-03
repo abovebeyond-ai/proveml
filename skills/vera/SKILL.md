@@ -381,51 +381,6 @@ Both ends of the chain can travel as verifiable credentials. Inbound: a
 page that links `rel="proveml-credential"` carries an SD-JWT VC
 (urn:proveml:source-manifest:1) over its manifest root, issued under the
 publisher's did:web. Outbound: the signed review can be issued the same
-way (urn:proveml:review:1) over the review root, which already folds in
-the output root and stands on the source roots. A verifier then holds a
-chain of standard credentials, not anyone's word: publisher key to source
-root, proof to quote, judgement to review root, reviewer key over that.
-
-Both ends of the chain can travel as verifiable credentials. Inbound: a
-page that links `rel="proveml-credential"` carries an SD-JWT VC
-(urn:proveml:source-manifest:1) over its manifest root, issued under the
-publisher's did:web. Outbound: the signed review can be issued the same
-way (urn:proveml:review:1) over the review root, which already folds in
-the output root and stands on the source roots. A verifier then holds a
-chain of standard credentials, not anyone's word: publisher key to source
-root, proof to quote, judgement to review root, reviewer key over that.
-
-Both ends of the chain can travel as verifiable credentials. Inbound: a
-page that links `rel="proveml-credential"` carries an SD-JWT VC
-(urn:proveml:source-manifest:1) over its manifest root, issued under the
-publisher's did:web. Outbound: the signed review can be issued the same
-way (urn:proveml:review:1) over the review root, which already folds in
-the output root and stands on the source roots. A verifier then holds a
-chain of standard credentials, not anyone's word: publisher key to source
-root, proof to quote, judgement to review root, reviewer key over that.
-
-Both ends of the chain can travel as verifiable credentials. Inbound: a
-page that links `rel="proveml-credential"` carries an SD-JWT VC
-(urn:proveml:source-manifest:1) over its manifest root, issued under the
-publisher's did:web. Outbound: the signed review can be issued the same
-way (urn:proveml:review:1) over the review root, which already folds in
-the output root and stands on the source roots. A verifier then holds a
-chain of standard credentials, not anyone's word: publisher key to source
-root, proof to quote, judgement to review root, reviewer key over that.
-
-Both ends of the chain can travel as verifiable credentials. Inbound: a
-page that links `rel="proveml-credential"` carries an SD-JWT VC
-(urn:proveml:source-manifest:1) over its manifest root, issued under the
-publisher's did:web. Outbound: the signed review can be issued the same
-way (urn:proveml:review:1) over the review root, which already folds in
-the output root and stands on the source roots. A verifier then holds a
-chain of standard credentials, not anyone's word: publisher key to source
-root, proof to quote, judgement to review root, reviewer key over that.
-
-Both ends of the chain can travel as verifiable credentials. Inbound: a
-page that links `rel="proveml-credential"` carries an SD-JWT VC
-(urn:proveml:source-manifest:1) over its manifest root, issued under the
-publisher's did:web. Outbound: the signed review can be issued the same
 way (urn:proveml:review:1, the review-vc adapter) over the review root,
 which already folds in the output root and stands on the source roots. A
 verifier then holds a chain of standard credentials, not anyone's word:
@@ -435,6 +390,23 @@ reviewer key over that.
 Never invent the hand-back: no notification means no review yet, and
 saying otherwise is the one unforgivable failure. When a localhost gate
 IS available, prefer `--await`: it blocks, signs and exits honestly.
+
+
+### No localhost? Publish the page as an artifact
+
+In an environment with an Artifact tool (Cowork, claude.ai, Claude Code
+with artifacts), do not rely on a localhost gate the user may not be able
+to open. Build the page to a file and publish it:
+
+    $PROVEML review --facts report/store.json --evidence report/evidence.json \
+      --snapshots report/sources/raw --output report/review-page.html
+
+then publish `report/review-page.html` with the Artifact tool and hand the
+user the link. The page is self-contained: they judge in their browser,
+press "copy review as JSON", and paste it back to you; save it as
+`report/review.json` and treat it exactly like a gate result (all judged
+and none flagged before the export ships). When a localhost gate IS
+available, prefer `--await`: it blocks, signs and exits honestly.
 
 
 ## Phase 5: edits

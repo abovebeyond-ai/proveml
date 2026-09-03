@@ -49,24 +49,27 @@ const BRIDGE = `
         for (const k of Object.keys(local)) { if (local[k] === null) delete m[k]; else m[k] = local[k]; }
         return m;
     };
-    const readings = Array.from(document.querySelectorAll('.reading[data-review]'));
+    // Read the readings each time: the page adds more as the model pass runs.
+    const readingsNow = () => Array.from(document.querySelectorAll('.reading[data-review]'));
     const btn = document.createElement('button');
     btn.id = 'rv-handback'; btn.className = 'rv-note';
     document.querySelector('.rv-actions').prepend(btn);
+    document.body.dataset.handback = '1';   // hand-back carries the judgements: the clipboard copy is only for pages without it
     let busy = false;
     const handedBack = () => {
         let overlay = null; try { overlay = localStorage.getItem(KEY); } catch (e) {}
         const c = committedJudgements();
         return !!(window.PROVEML_REVIEW_COMMITTED && window.PROVEML_REVIEW_COMMITTED.exported)
-            && readings.every((r) => c[r.dataset.review]) && (!overlay || overlay === '{}');
+            && readingsNow().every((r) => c[r.dataset.review]) && (!overlay || overlay === '{}');
     };
+    document.addEventListener('proveml:paint', () => state());
     const state = () => {
         if (busy) return;
         const m = merged();
-        const open = readings.filter((r) => !m[r.dataset.review]).length;
-        if (handedBack()) { btn.disabled = true; btn.className = 'rv-note'; btn.textContent = 'with Vera \\u2713'; }
-        else if (open) { btn.disabled = true; btn.className = 'rv-note'; btn.textContent = open + ' to judge, then hand back'; }
-        else { btn.disabled = false; btn.className = 'rv-btn rv-primary'; btn.textContent = 'hand back to Vera'; }
+        const open = readingsNow().filter((r) => !m[r.dataset.review]).length;
+        if (handedBack()) { btn.hidden = false; btn.disabled = true; btn.className = 'rv-note'; btn.textContent = 'handed back \\u2713'; }
+        else if (open) { btn.hidden = true; btn.disabled = true; btn.className = 'rv-note'; btn.textContent = ''; }
+        else { btn.hidden = false; btn.disabled = false; btn.className = 'rv-btn rv-primary'; btn.textContent = 'hand back to Vera'; }
     };
     btn.addEventListener('click', async () => {
         if (btn.disabled || busy) return;

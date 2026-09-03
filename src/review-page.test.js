@@ -37,9 +37,9 @@ console.log('\n=== review-page: the gate ===');
     assert('page carries the readings', subjects[0].evidence.every((e) => r.html.includes(`data-review="${evidenceReviewId('ixbrl', e)}"`)));
     assert('quote survives whitespace differences', r.html.includes('iXBRL embeds extra tags'));
     assert('absence is named, not quoted', r.html.includes('rests on absence'));
-    assert('absence hands the reviewer the whole source', r.html.includes('see for yourself') && r.html.includes('What is iXBRL?'));
+    assert('absence hands the reviewer the whole source', r.html.includes('scan the whole source') && r.html.includes('What is iXBRL?'));
     assert('no source, no scan offer', !reviewPage({ store, subjects: [{ ...subjects[0], evidence: [subjects[0].evidence[2]] }] }).html.includes('see for yourself'));
-    assert('statline names the store', r.html.includes('store tools, 1 tools'));
+    assert('the masthead names the store', r.html.includes('class="rv-doc"') && r.html.includes('>tools</span>'));
 
     const script = /<script>([\s\S]*?)<\/script>/.exec(r.html)[1];
     assert('embedded script parses', (() => { try { new Function(script); return true; } catch { return false; } })());
@@ -103,7 +103,7 @@ console.log('\n=== review-page: several quotes under one value ===');
 console.log('\n=== review-page: literal readings are triaged ===');
 {
     const r = reviewPage({ store, subjects, snapshots });
-    assert('a value that sits in its quote is marked literal', /data-evidence-field="category"[^>]*data-literal/.test(r.html) === false && r.html.includes('say yes to the plain ones'));
+    assert('a value that sits in its quote is marked literal', /data-evidence-field="category"[^>]*data-literal/.test(r.html) === false && r.html.includes("by: 'machine'"));
     const lit = [{ ...subjects[0], evidence: [{ field: 'category', claimValue: 'inline financial tagging standard', basis: 'quote', sourceQuote: 'iXBRL embeds extra tags into the HTML standard', sourceLocator: 'p3' },
         { field: 'inlineSupport', claimValue: 'yes', basis: 'derived' }] }];
     const store2 = { ...store, 'tool:ixbrl.category': 'inline financial tagging standard' };
@@ -150,7 +150,7 @@ console.log('\n=== review-page: hover context and brand ===');
     assert('provenance moves to the statline', / on proveml\.<\/p>/.test(b.html));
     assert('no middle-dot chains anywhere', !r.html.includes('\u00B7'));
     assert('no pills on silent actions', !r.html.includes('rv-pill'));
-    assert('actions wear the pill button', r.html.includes('class="rv-btn"'));
+    assert('the primary action is a rectangular button', r.html.includes('class="rv-btn rv-primary"') && !/rv-btn[^{]*border-radius:999px/.test(r.html));
     assert('view switch ships', r.html.includes('data-view="full"') && r.html.includes('aria-pressed="true"'));
     assert('literal evidence not collapsed unjudged', !r.html.includes('[data-literal]:not([data-judged]):not([data-expanded])'));
     assert('no snapshot, no tip', !reviewPage({ store, subjects: [{ ...subjects[0], evidence: [subjects[0].evidence[0]] }] }).html.includes('title="What is'));
@@ -162,7 +162,7 @@ console.log('\n=== review-page: a manifested quote carries its proof ===');
 {
     const man = buildManifest('What is iXBRL? iXBRL embeds extra tags into the HTML standard, and more.', { html: false });
     const r = reviewPage({ store, subjects, manifests: { ixbrl: man } });
-    assert('locator names the block and root', r.html.includes('block 1 of 1, root ' + man.root.slice(0, 10)));
+    assert('locator names the block and root', r.html.includes('block 1 of 1, root <code class="h" title="' + man.root + '">' + man.root.slice(0, 12)));
     assert('the proof rides the return', r.proofs.length === 1 && r.proofs[0].subject === 'ixbrl' && r.proofs[0].field === 'category');
     assert('a stranger can verify it', verifyInclusion(man.root, man.leaves[r.proofs[0].leafIndex].text, r.proofs[0].proof));
     assert('a tampered root fails', !verifyInclusion(man.root.replace(/^./, man.root[0] === 'a' ? 'b' : 'a'), man.leaves[0].text, r.proofs[0].proof));
@@ -177,11 +177,11 @@ console.log('\n=== review-page: a manifested quote carries its proof ===');
     assert('the tree is drawn', r.html.includes('mk-tree') && r.html.includes('mk-node-root'));
     assert('levels pair up CT-style', JSON.stringify(treeLevels(buildManifest('a\nb\nc\nd\ne\nf', { html: false })).map((l) => l.length)) === '[6,3,2,1]');
     const rr = reviewPage({ store, subjects, manifests: { ixbrl: man }, committedReview: { exported: 'x', judgements: { abcd1234: { verdict: 'fair', src: 'ixbrl', field: 'category', at: '2026-09-01T00:00:00Z' } } } });
-    assert('the review folds into its own root', rr.html.includes('The review itself') && rr.html.includes('ixbrl.category: yes'));
-    assert('the output is the first leaf', rr.html.includes('the output itself, all of it'));
+    assert('the review folds into its own root', rr.html.includes('Approvals, going out') && rr.html.includes('PROVEML_REVIEW_COMMITTED') && rr.html.includes('ixbrl') && rr.html.includes('"field":"category"'));
+    assert('the output is the first leaf', /data-output-root="[0-9a-f]{64}"/.test(rr.html) && rr.html.includes("['output ' + host.dataset.outputRoot]"));
     assert('the exported recipe matches the page', reviewRootOf(rr.roots && { abcd1234: { verdict: 'fair', src: 'ixbrl', field: 'category', at: '2026-09-01T00:00:00Z' } }, rr.roots.output).root === rr.roots.review);
     assert('roots ride the return for the credential', rr.roots && /^[0-9a-f]{64}$/.test(rr.roots.review) && /^[0-9a-f]{64}$/.test(rr.roots.output) && /^[0-9a-f]{64}$/.test(rr.roots.sources.ixbrl));
-    assert('no review, no roots', r.roots === null);
+    assert('no review, still a root over the output alone', r.roots && /^[0-9a-f]{64}$/.test(r.roots.output) && r.roots.review === reviewRootOf({}, r.roots.output).root);
     const rr2 = reviewPage({ store: { ...store, 'tool:ixbrl.category': store['tool:ixbrl.category'] }, subjects: [{ ...subjects[0], claim: subjects[0].claim + ' Indeed.' }], manifests: { ixbrl: man }, committedReview: { exported: 'x', judgements: { abcd1234: { verdict: 'fair', src: 'ixbrl', field: 'category', at: '2026-09-01T00:00:00Z' } } } });
     const rootOf = (h) => /data-kind="review"[^]*?mk-root">([0-9a-f]+)</.exec(h)[1];
     assert('editing the output moves the review root', rootOf(rr.html) !== rootOf(rr2.html));
@@ -191,7 +191,7 @@ console.log('\n=== review-page: a manifested quote carries its proof ===');
     const rs = reviewPage({ store, subjects, manifests: { ixbrl: man }, signatures: { ixbrl: { issuer: 'did:web:example.org', method: 'sd-jwt-vc', verifiedAt: '2026-09-01' } } });
     assert('signed roots are named on the quote line', rs.html.includes('root signed by did:web:example.org'));
     assert('the proof carries the signer', rs.proofs[0].signedBy === 'did:web:example.org');
-    assert('unsigned says so in the merkle view', r.html.includes('root unsigned'));
+    assert('unwitnessed says so in the provenance view', r.html.includes('root unwitnessed'));
     assert('an attestation without a manifest refuses', throws(() => reviewPage({ store, subjects, snapshots, signatures: { ixbrl: { issuer: 'x' } } }), /signs nothing/));
     assert('a quote spanning two leaves refuses to build', throws(() => reviewPage({
         store, manifests: { ixbrl: twoLeaf },
@@ -200,3 +200,17 @@ console.log('\n=== review-page: a manifested quote carries its proof ===');
 }
 
 process.exit(failed > 0 ? 1 : 0);
+
+
+// === a verifier mismatch: refused by default, carried on request ===
+{
+    console.log('\n=== review-page: a mismatch is the most important thing to show ===');
+    const store = { 'co:apple.name': 'Apple', 'co:apple.revenue': 391 };
+    const subjects = [{ id: 's1', title: 't', claim: '@[co:apple]{Apple} made %[revenue]{420}.', evidence: [{ field: 'revenue', claimValue: '420', basis: 'derived', note: 'n' }] }];
+    let refused = false; try { reviewPage({ store, subjects }); } catch (e) { refused = /should be 391/.test(e.message); }
+    assert('refused without allowMismatch', refused);
+    const r = reviewPage({ store, subjects, allowMismatch: true });
+    assert('carried with allowMismatch, red and named', r.html.includes('data-mismatch="391"') && r.html.includes('proveml-mismatch') && r.html.includes('the verifier disagrees: the source says 391'));
+    assert('the mismatch does not count as verified', r.verified === 1 && r.total === 2);
+    assert('a yes on it is guarded', r.html.includes('rv-guard'));
+}
