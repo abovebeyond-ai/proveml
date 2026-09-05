@@ -10,7 +10,7 @@ lets the model mark its claims so a machine can check them:
 ?[healthy: IS_PROFITABLE]{The margin is healthy}.
 ```
 
-Every marked claim is checked against your data by lookup and comparison —
+Every marked claim is checked against your data by lookup and comparison:
 **no model in the verification loop**. What the data cannot support is visible
 as such, instead of reading like everything else.
 
@@ -46,7 +46,7 @@ npx proveml verify --input report.md --facts facts.json
 | `?[label: THRESHOLD]{text}` | this judgment holds | arithmetic against a registered threshold |
 
 Anything outside a construct is ordinary prose and is never claimed to be
-checked — the boundary is the point.
+checked. The boundary is the point.
 
 ## Why a threshold registry
 
@@ -76,6 +76,8 @@ npx proveml prompt --facts facts.json --thresholds registry.json
 ```
 
 ## Review: the judgements no machine can make
+
+The review page is called Vera. It shows a person only the readings where interpretation happened, each beside its proof, takes a yes or a no, and folds the judgements into one signed review root. It ships in this package (`src/review-page.js`) and as the `vera` skill; `docs/deck.html` walks through the whole chain in twelve slides.
 
 Some links in a chain of evidence are not lookups: whether a stored value is a
 fair reading of a quote, whether a report may go out. `proveml/review` gives
@@ -430,8 +432,9 @@ The paper, reference-audit workflow, benchmarks, datasets, and experiment output
 
 ## Documentation
 
-- [`docs/index.html`](docs/index.html) — human-friendly docs
-- [`docs/agent-reference.md`](docs/agent-reference.md) — reference for LLM agents
-- [`docs/fact-store.md`](docs/fact-store.md) — fact-store guide
-- [`llms.txt`](llms.txt) — agent discovery file
+- [`docs/index.html`](docs/index.html): human-friendly docs
+- [`docs/agent-reference.md`](docs/agent-reference.md): reference for LLM agents
+- [`docs/fact-store.md`](docs/fact-store.md): fact-store guide
+- [`docs/deck.html`](docs/deck.html): the deck, twelve slides with speaker notes
+- [`llms.txt`](llms.txt): agent discovery file
 - Paper, benchmarks and experiments: [proveml-research](https://github.com/abovebeyond-ai/proveml-research)
