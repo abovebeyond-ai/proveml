@@ -33,7 +33,7 @@ like the rest of the project.
 
 ## Where things live
 
-- `src/`: the package. `verify.js` is the judge, `review-page.js` is Vera.
+- `src/`: the package. `verify.js` is the judge, `review-page.js` is Vera's review page; the `vera` skill is the other half.
 - `docs/`: human docs, the agent reference, the fact-store guide, and the deck.
 - `skills/`: the Claude Code skills, `vera` and `proveml-review`.
 - `proveml-demos`: live demos and the independent Python verifier.
