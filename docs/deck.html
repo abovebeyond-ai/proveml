@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ProveML, the deck</title>
+<meta name="description" content="A twelve-slide walk through ProveML: what it is, the two dead ends it answers, how the chain works, what it does not claim. Arrow keys to move, n for speaker notes.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700;800;900&family=Spline+Sans+Mono:wght@400;500&display=swap');
+:root{
+  --night:#14233b;--card:#1c2e4d;--sky:#f2f6f7;--haze:#a8bfc9;--dim:#6d829a;
+  --line:rgba(242,246,247,.14);--groen:#6ee7a8;--blauw:#6d9bff;--amber:#e5b567;
+  --merk:linear-gradient(105deg,#6ee7a8,#6d9bff);
+}
+*{box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{margin:0;background:var(--night);color:var(--sky);font-family:Lato,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(60rem 40rem at 12% -10%,rgba(110,231,168,.07),transparent 60%),
+             radial-gradient(70rem 50rem at 110% 110%,rgba(109,155,255,.09),transparent 60%)}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;
+  padding:clamp(2rem,6vh,4rem) clamp(2rem,6vw,6rem) clamp(3.5rem,8vh,5rem);gap:1.4rem}
+.slide.actief{display:flex;animation:kom .45s ease}
+@keyframes kom{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.slide.actief{animation:none}}
+.kicker{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.8rem,1.4vw,1rem);letter-spacing:.04em;color:var(--dim);margin:0}
+h1{font-size:clamp(2rem,4.6vw,3.6rem);font-weight:900;letter-spacing:-.02em;line-height:1.06;margin:0;text-wrap:balance;max-width:30ch}
+h1.groot{font-size:clamp(3rem,8vw,6rem);letter-spacing:-.025em;line-height:1.02}
+h1 .g{background:var(--merk);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--groen)}
+.body{font-size:clamp(1.05rem,1.8vw,1.4rem);line-height:1.6;color:var(--haze);max-width:64rem;margin:0}
+.body b{color:var(--sky);font-weight:700}
+ul.punten{list-style:none;margin:.4rem 0 0;padding:0;display:flex;flex-direction:column;gap:1.1rem;max-width:68rem}
+ul.punten li{font-size:clamp(1rem,1.7vw,1.3rem);line-height:1.55;color:var(--haze);padding-left:1.4rem;position:relative}
+ul.punten li::before{content:'';position:absolute;left:0;top:.62em;width:.55em;height:.14em;background:var(--merk);border-radius:1px}
+ul.punten b{color:var(--sky)}
+.statline{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.85rem,1.4vw,1rem);color:var(--dim);margin:.8rem 0 0;max-width:78rem;line-height:1.65}
+.statline b{color:var(--groen);font-weight:500}
+.statline .a{color:var(--amber)}
+.mono-rows{display:flex;flex-direction:column;gap:.75rem;margin-top:.4rem;max-width:70rem}
+.mono-rows div{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.85rem,1.6vw,1.08rem);line-height:1.5;color:var(--haze);border-left:2px solid rgba(110,231,168,.45);padding-left:.9rem}
+.mono-rows b{color:var(--sky);font-weight:500}
+.pijlen{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.3rem;margin-top:.5rem}
+@media (max-width:56rem){.pijlen{grid-template-columns:1fr}}
+.pijl{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1.15rem 1.5rem}
+.pijl svg{display:block;width:min(26rem,70%);height:1.2rem;margin-bottom:.7rem}
+.pijl p{margin:0;font-size:clamp(1rem,1.8vw,1.3rem);line-height:1.5;color:var(--haze)}
+.pijl b{color:var(--sky)}
+.pijl .vb{display:block;margin-top:.45rem;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.78rem,1.4vw,.95rem);color:var(--dim)}
+.pijl.dood-g{border-left:3px solid var(--groen)}
+.pijl.dood-b{border-left:3px solid var(--blauw)}
+.pijl h2{margin:0 0 .45rem;font-size:clamp(1.15rem,2.2vw,1.6rem);font-weight:800;letter-spacing:-.015em;color:var(--sky)}
+.pijl .ikoon{display:block;height:2.1rem;width:auto;margin-bottom:.7rem}
+.brug{display:grid;grid-template-columns:auto 1fr auto;gap:clamp(1rem,3vw,2.5rem);align-items:stretch;margin-top:.8rem}
+.wereld{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1.4rem 1.6rem;display:flex;flex-direction:column;justify-content:center;gap:.5rem;min-width:12rem}
+.wereld.w-b{border-top:3px solid var(--blauw)}
+.wereld.w-g{border-top:3px solid var(--groen)}
+.wereld h2{margin:0;font-size:clamp(1.1rem,2vw,1.5rem);font-weight:800;letter-spacing:-.015em;color:var(--sky)}
+.wereld .sub{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.75rem,1.3vw,.92rem);color:var(--dim);margin:0}
+.wereld .ikoon{height:2.2rem;width:auto;margin-bottom:.3rem;align-self:flex-start}
+.stromen{display:flex;flex-direction:column;justify-content:center;gap:2.4rem}
+.stroom p{margin:0 0 .5rem;font-size:clamp(1rem,1.8vw,1.3rem);line-height:1.5;color:var(--haze);text-align:center}
+.stroom p b{color:var(--sky)}
+.stroom .vb2{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.75rem,1.3vw,.92rem);color:var(--dim);text-align:center;margin:.5rem 0 0}
+.pijl-baan{display:flex;align-items:center}
+.pijl-baan .lijn{flex:1;height:4px;border-radius:2px}
+.pijl-baan .punt{width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent}
+.baan-b .lijn{background:var(--blauw)}
+.baan-b .punt{border-left:14px solid var(--blauw)}
+.baan-g .lijn{background:var(--groen)}
+.baan-g .punt{border-right:14px solid var(--groen)}
+@media (max-width:56rem){.brug{grid-template-columns:1fr}.wereld{min-width:0}}
+.code-blok{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--groen);border-radius:6px;
+  padding:1.3rem 1.6rem;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.95rem,1.9vw,1.35rem);
+  line-height:1.9;color:var(--haze);max-width:80ch;overflow-x:auto;white-space:pre-line}
+.blok-label{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.72rem,1.3vw,.9rem);color:var(--dim);margin:0 0 .55rem}
+.render-blok{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:6px;
+  padding:1.3rem 1.6rem;font-size:clamp(1rem,1.8vw,1.3rem);line-height:1.9;color:var(--haze)}
+.render-blok .r-ent{color:var(--groen);border:1px solid rgba(110,231,168,.5);border-radius:3px;padding:.03em .3em}
+.render-blok .r-fct{color:var(--groen);border-bottom:2px dotted rgba(110,231,168,.7)}
+.render-blok .r-jud{color:var(--groen);border-bottom:2px dashed rgba(110,231,168,.7)}
+.code-blok .ent{color:var(--groen)}
+.code-blok .fct{color:var(--groen);border-bottom:2px dotted rgba(110,231,168,.55)}
+.code-blok .jud{color:var(--groen);border-bottom:2px dashed rgba(110,231,168,.55)}
+.register{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:6px;
+  padding:1.2rem 1.6rem;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.9rem,1.8vw,1.25rem);
+  line-height:2;color:var(--haze);max-width:72rem;overflow-x:auto}
+.register .rij{display:grid;grid-template-columns:minmax(11rem,auto) 1fr minmax(14rem,auto);gap:2rem;white-space:nowrap}
+.register .naam{color:var(--amber)}
+.register .regel{color:var(--sky)}
+.register .label{color:var(--dim)}
+.rmock{background:var(--card);border:1px solid var(--line);border-radius:6px;margin-top:.4rem}
+.rmock-bar{display:flex;justify-content:space-between;gap:1rem;padding:.7rem 1.2rem;border-bottom:1px solid var(--line);
+  font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.72rem,1.4vw,.95rem);color:var(--dim)}
+.rmock-row{display:grid;grid-template-columns:minmax(12rem,.7fr) 1.8fr minmax(12rem,auto);gap:1.4rem;align-items:start;padding:.9rem 1.2rem;border-bottom:1px dashed var(--line)}
+.rmock-row:last-child{border-bottom:none}
+.rmock-claim{font-size:clamp(.9rem,1.7vw,1.2rem);color:var(--haze)}
+.rmock-claim .k{display:block;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:.72em;color:var(--dim)}
+.rmock-claim b{color:var(--sky)}
+.rmock-ev{font-size:clamp(.82rem,1.5vw,1.05rem);color:var(--haze)}
+.rmock-ev q{display:block;font-style:italic;color:var(--sky);margin:0 0 .15rem;quotes:'\201C' '\201D'}
+.rmock-ev .loc{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:.78em;color:var(--dim)}
+.rmock-ev .abs{color:var(--amber)}
+.rmock-judge{display:flex;gap:.45rem;align-items:center;justify-content:flex-end;padding-top:.35rem;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.7rem,1.3vw,.9rem)}
+.rmock-judge .pil{border:1px solid var(--line);border-radius:999px;padding:.12em .7em;color:var(--haze)}
+.rmock-judge .pil.aan{background:var(--groen);border-color:var(--groen);color:var(--night)}
+.rmock-judge .open{color:var(--amber)}
+.keten{width:100%;max-width:76rem;height:auto;margin-top:1rem}
+.keten text{font-family:'Spline Sans Mono',ui-monospace,monospace;fill:var(--haze)}
+.merkteken{height:clamp(2.6rem,6vw,4.2rem);width:auto;align-self:flex-start}
+.voet{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:1.2rem;padding:0 1.6rem 1.1rem}
+.groef{flex:1;height:5px;background:rgba(242,246,247,.1)}
+.groef i{display:block;height:100%;width:0;background:var(--merk);transition:width .3s ease}
+.teller{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:.75rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.hint{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:.75rem;color:var(--dim)}
+.noot{position:fixed;left:1.6rem;right:1.6rem;bottom:3rem;background:rgba(12,20,35,.96);border:1px solid var(--line);border-radius:6px;
+  padding:1rem 1.3rem;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:clamp(.75rem,1.3vw,.92rem);line-height:1.65;color:var(--haze);max-width:64rem}
+.noot b{color:var(--amber);font-weight:500}
+body:not(.met-noten) .noot{display:none}
+</style>
+</head>
+<body>
+
+<section class="slide" id="s1">
+  <p class="kicker">abovebeyond</p>
+  <svg class="merkteken" viewBox="2 5 28 20" role="img" aria-label="ProveML">
+    <defs><linearGradient id="m1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6ee7a8"/><stop offset="1" stop-color="#6d9bff"/></linearGradient>
+    <filter id="gl" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="2.2"/></filter></defs>
+    <circle cx="16" cy="12" r="5.4" fill="#6ee7a8" filter="url(#gl)" opacity=".45"/>
+    <circle cx="16" cy="12" r="4.6" fill="url(#m1)"/>
+    <rect x="3" y="21" width="26" height="2.6" rx="1.3" fill="url(#m1)"/>
+  </svg>
+  <h1 class="groot"><span class="g">ProveML</span></h1>
+  <p class="body">An open specification and reference implementation for <b>verifiable, human-signed AI output</b>.
+  Open-ended AI, deterministic accountability.</p>
+  <p class="statline">AI made you faster than ever. <b>Your name is still on it.</b></p>
+  <aside class="noot"><b>job:</b> drawer assignment. Open-source projects introduce themselves as a category noun plus a use; do the same. First sentence a definition, no poetry until sentence two. In five seconds the audience decides: AI startup, or trust infrastructure. The subtitle puts you in the second drawer. <b>say:</b> one sentence about yourself, then silence; the tagline does its own work. <b>trap:</b> opening with enthusiasm about AI. Rooms that care about trust fear AI; open calm.</aside>
+</section>
+
+<section class="slide" id="s2">
+  <h1>Two dead ends.</h1>
+  <div class="pijlen">
+    <div class="pijl dood-b">
+      <svg class="ikoon" viewBox="0 0 96 32" aria-hidden="true">
+        <circle cx="14" cy="16" r="11" fill="none" stroke="#6d9bff" stroke-width="2.5"/>
+        <path d="M9 16 l4 4 l7 -8" fill="none" stroke="#6d9bff" stroke-width="2.5" stroke-linecap="round"/>
+        <g stroke="#6d9bff" stroke-width="2.5" stroke-linecap="round">
+          <line x1="36" y1="16" x2="48" y2="16" opacity=".75"/>
+          <line x1="56" y1="16" x2="65" y2="16" opacity=".45"/>
+          <line x1="73" y1="16" x2="78" y2="16" opacity=".2"/>
+        </g>
+      </svg>
+      <h2>Signed data dies in the context window.</h2>
+      <p>Feed a model a credential, an attested registry, a qualified statement. Once inside the prompt, it is
+      just text. <b>Verified in, plausible out:</b> the language model is a trust-laundering function.</p>
+    </div>
+    <div class="pijl dood-g">
+      <svg class="ikoon" viewBox="0 0 96 32" aria-hidden="true">
+        <g fill="#6ee7a8">
+          <rect x="2" y="2" width="52" height="3" rx="1.5" opacity=".75"/>
+          <rect x="2" y="10" width="24" height="3" rx="1.5" opacity=".75"/>
+          <rect x="32" y="13" width="22" height="3" rx="1.5" opacity=".45"/>
+        </g>
+        <path d="M2 27 c5 -9 9 5 14 -3 s9 7 14 -1 s9 5 14 -2" fill="none" stroke="#6ee7a8" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+      <h2>AI makes mistakes, and your name is on them.</h2>
+      <p>A model writes with total confidence and no ground. The person who ships the text is
+      still the one answerable for every number in it, <b>at hand-checking speed</b>.</p>
+    </div>
+  </div>
+  <p class="statline">One world’s trust cannot be consumed. The other world’s output cannot be stood behind.</p>
+  <aside class="noot"><b>job:</b> open BOTH wounds, in the arrows' colours, so slide 4 can answer them one for one. Lead with the wound the audience owns: a trust room feels the first, an AI room feels the second. Meeting theirs first buys the right to name the other. "Context window" plus "signatures die" proves dual citizenship in one breath. <b>say:</b> "one side writes what nobody can stand behind; the other side signed everything and nobody downstream can tell." <b>trap:</b> never say decentralised identity failed. Say the demand side never arrived. The next slide is the arrival.</aside>
+</section>
+
+<section class="slide" id="s2b">
+  <h1>The untapped value.</h1>
+  <div class="pijlen">
+    <div class="pijl dood-g">
+      <svg class="ikoon" viewBox="0 0 96 32" aria-hidden="true">
+        <g stroke="#6ee7a8" stroke-width="2.5" stroke-linecap="round" fill="none">
+          <line x1="6" y1="26" x2="18" y2="26" opacity=".9"/>
+          <line x1="6" y1="18" x2="14" y2="18" opacity=".55"/>
+          <path d="M30 26 C44 26 46 8 62 8" opacity=".9"/>
+          <path d="M55 6 l7 2 l-2 7" opacity=".9"/>
+        </g>
+        <circle cx="80" cy="9" r="6" fill="#6ee7a8" opacity=".85"/>
+      </svg>
+      <h2>Friction fell, and AI was adopted overnight.</h2>
+      <p>Decentralised trust removed the reconciliation and the middlemen; its price was always onboarding.
+      Then AI removed the work, and the whole world took it in a season. <b>The on-ramp trust deserved.</b></p>
+    </div>
+    <div class="pijl" style="border-left:3px solid var(--amber)">
+      <svg class="ikoon" viewBox="0 0 96 32" aria-hidden="true">
+        <path d="M8 8 C24 8 22 26 40 26" fill="none" stroke="#e5b567" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M52 26 L74 26 M74 26 L68 20 M74 26 L68 32" fill="none" stroke="#e5b567" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="80" y="12" width="12" height="12" rx="2" fill="none" stroke="#e5b567" stroke-width="2.5"/>
+        <line x1="83" y1="12" x2="83" y2="8" stroke="#e5b567" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <h2>Its speed put the checking back.</h2>
+      <p>AI writes faster than anyone can verify, so the checking returned, and it landed
+      <b>locked out of the policy points</b>, where decisions carry weight. Still unsolved, and everyone is hunting for it.</p>
+    </div>
+  </div>
+  <p class="statline"><b>We bring a working chain to the table.</b> Checking is machine work now. <span class="a">Vouching never will be.</span></p>
+  <aside class="noot"><b>job:</b> shared purpose, framed as opportunity rather than complaint: both movements exist to remove useless work, and the value locked behind the verification gap is the size of every policy point AI cannot enter yet. The last statline answers "why is a human necessary at all": not as a checker, machines check now, but as the judge and the bearer of the name. <b>say:</b> "the whole point of decentralised trust was removing useless verification work. AI recreated it, and the same gap keeps AI barred from every decision point that matters. Everyone is hunting for this and nobody has closed it; we walk in with it working." <b>trap:</b> philosophy past forty seconds. One beat, then the arrows.</aside>
+</section>
+
+<section class="slide" id="s3">
+  <h1>Two ways through.</h1>
+  <div class="brug">
+    <div class="wereld w-b">
+      <svg class="ikoon" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="12" fill="none" stroke="#6d9bff" stroke-width="2.5"/>
+        <path d="M10.5 16 l4.5 4.5 l8 -9" fill="none" stroke="#6d9bff" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <h2>The deterministic world</h2>
+      <p class="sub">credentials, ledgers,<br>registries, signed sources</p>
+    </div>
+    <div class="stromen">
+      <div class="stroom">
+        <p><b>What is signed stays signed</b> on its way through a model.</p>
+        <div class="pijl-baan baan-b"><span class="lijn"></span><span class="punt"></span></div>
+        <p class="vb2">a wallet credential quoted in an AI-written document, still verifiable at the far end</p>
+      </div>
+      <div class="stroom">
+        <p><b>What AI writes becomes signable:</b> a person can stand behind it.</p>
+        <div class="pijl-baan baan-g"><span class="punt"></span><span class="lijn"></span></div>
+        <p class="vb2">a report drafted by a model, every value carrying its proof, signed off by a human: reading by reading, not just the whole</p>
+      </div>
+    </div>
+    <div class="wereld w-g">
+      <svg class="ikoon" viewBox="0 0 32 32" aria-hidden="true">
+        <g fill="#6ee7a8">
+          <rect x="4" y="7" width="24" height="3" rx="1.5" opacity=".85"/>
+          <rect x="4" y="14" width="17" height="3" rx="1.5" opacity=".6"/>
+          <rect x="4" y="21" width="21" height="3" rx="1.5" opacity=".35"/>
+        </g>
+      </svg>
+      <h2>The open-ended world</h2>
+      <p class="sub">models, drafts,<br>agents</p>
+    </div>
+  </div>
+  <p class="statline">Each direction solves the other world's dead end.</p>
+  <aside class="noot"><b>job:</b> the answer, shaped exactly like the problem, and titled as its reversal: "two dead ends" becomes "two ways through", same cadence and colours, one for one. An idea lands only in prepared soil; this is why the core is third, not first. <b>say:</b> "each arrow solves the other world's dead end, and I am standing in both worlds." The concretes under each arrow are there so nobody has to imagine anything. <b>trap:</b> abstraction. If eyes glaze, point at the two mono lines and read them out.</aside>
+</section>
+
+<section class="slide" id="s4">
+  <h1>Signed in, signed out. The middle is new.</h1>
+  <p class="body">Hand it to a capable model. Let it infer by itself. <b>Verify deterministically.</b>
+  A person signs off <b>where interpretation happened</b>, and only there: signed fields under registered
+  rules close by machine alone. <b>Both edges are adapters</b>, so it plugs into what you already run.</p>
+  <svg class="keten" viewBox="0 0 960 244" aria-label="signed sources in through adapters, the model and human loop in the middle, a signed review out through adapters">
+    <defs>
+      <filter id="kgl" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="7"/></filter>
+    </defs>
+    <rect x="225" y="52" width="520" height="158" rx="12" fill="rgba(110,231,168,.05)" stroke="rgba(110,231,168,.22)"/>
+    <text x="485" y="36" font-size="17" text-anchor="middle" fill="#f2f6f7">the part that did not exist before</text>
+    <line x1="80" y1="130" x2="290" y2="130" stroke="#6d9bff" stroke-width="4" stroke-dasharray="9 7" stroke-linecap="round"/>
+    <line x1="315" y1="130" x2="660" y2="130" stroke="#6ee7a8" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="670" y1="130" x2="880" y2="130" stroke="#6d9bff" stroke-width="4" stroke-dasharray="9 7" stroke-linecap="round"/>
+    <g font-size="12" text-anchor="middle" opacity=".85">
+      <text x="190" y="112" fill="#6d9bff">adapter</text>
+      <text x="80" y="228" font-size="12" fill="#6d9bff" opacity=".85">any credential, ledger, registry</text>
+      <text x="390" y="112" fill="#6ee7a8">binds every value</text>
+      <text x="562" y="112" fill="#6ee7a8">proof beside reading</text>
+      <text x="770" y="112" fill="#6d9bff">adapter</text>
+      <text x="880" y="228" font-size="12" fill="#6d9bff" opacity=".85">credential, or your verifier</text>
+    </g>
+    <circle cx="660" cy="130" r="24" fill="#e5b567" filter="url(#kgl)" opacity=".4"/>
+    <g>
+      <circle cx="80" cy="130" r="13" fill="#6d9bff"/>
+      <circle cx="300" cy="130" r="12" fill="none" stroke="#6ee7a8" stroke-width="3" stroke-dasharray="4 4"/>
+      <circle cx="480" cy="130" r="13" fill="#6ee7a8"/>
+      <circle cx="660" cy="130" r="16" fill="#e5b567"/><circle cx="660" cy="130" r="23" fill="none" stroke="#e5b567" stroke-width="2" stroke-dasharray="4 5" opacity=".75"/>
+      <circle cx="880" cy="130" r="13" fill="#6d9bff"/>
+    </g>
+    <g font-size="19" text-anchor="middle">
+      <text x="80" y="174">signed</text><text x="80" y="198">sources</text>
+      <text x="300" y="174">the model</text><text x="300" y="198">proposes</text>
+      <text x="480" y="174">the machine</text><text x="480" y="198">checks</text>
+      <text x="660" y="174" fill="#e5b567">a person judges</text><text x="660" y="228" font-size="15" fill="#e5b567" opacity=".8">only where interpretation happened</text>
+      <text x="880" y="174">signed</text><text x="880" y="198">verdict out</text>
+    </g>
+  </svg>
+  <p class="statline">A world of islands: every system holds signed data no other system can consume. <b>The adapters are the bridge.</b> Take in any credential, ledger or registry; send out a review credential, or hand the bound facts straight to the verifier you already run.</p>
+  <aside class="noot"><b>job:</b> mechanism for the engineers, thesis for everyone: the human is IN the chain, not replaced by it. That is what the amber node says. <b>say:</b> "everything at the edges is yours already: your credentials, your ledgers, your formats, plugged in through adapters. The middle is the part that did not exist: open-ended proposing, deterministic checking, a human signing off. Note the dashed circle: the model touches everything and signs nothing." Name the sockets when someone leans in: on the left, did:web and SD-JWT today, sockets open for other issuers. <b>the right edge is the adoption key:</b> we do not replace anyone's verifier. After tagging you get addressed, signed, coverage-checked facts, the exact input a policy engine assumes it already has, so send them to a review credential OR to the deterministic verifier they already run: OPA/Rego, a DIF PEX evaluator, a DMN decision table, even a contract. <b>caveat to keep honest:</b> the end-to-end guarantee holds as far as that downstream verifier is itself sound and default-deny; use our registry when you want the totality proof. Line: "we are the layer that lets your existing verifier finally accept AI output without trusting the AI." <b>trap:</b> tree details. If someone digs, say "happy to walk the merkle layer after" and keep the room.</aside>
+</section>
+
+<section class="slide" id="s4b">
+  <h1>Claims carry their bindings.</h1>
+  <div class="pijlen">
+    <div>
+      <p class="blok-label">what the model writes</p>
+      <div class="code-blok">Hi Marta, <span class="ent">@[order:4821]{order 4821}</span> ships on
+<span class="fct">%[shipDate]{14 March}</span>, and your warranty runs until
+<span class="fct">%[warrantyUntil]{3 June 2026}</span>.
+<span class="jud">?[covered: IS_IN_WARRANTY]{You are still covered}</span>,
+so the repair is free.</div>
+    </div>
+    <div>
+      <p class="blok-label">what the reader sees, every mark computed</p>
+      <div class="render-blok">Hi Marta, <span class="r-ent">order 4821</span> ships on
+      <span class="r-fct">14 March</span>, and your warranty runs until
+      <span class="r-fct">3 June 2026</span>. <span class="r-jud">You are still covered</span>,
+      so the repair is free.</div>
+    </div>
+  </div>
+  <p class="body">A subject names its record. A value binds to a field. A verdict binds to a
+  <b>declared threshold</b>, never to the model's opinion. Strip the markup and clean prose
+  remains; the receipt keeps the bindings.</p>
+  <p class="statline">Nothing unproven ships: the gate refuses the page before a reader ever sees it.</p>
+  <aside class="noot"><b>job:</b> most audiences have seen a hundred architecture diagrams and zero syntax; showing the actual marks is the proof that a thing exists. Green is machine-verified against the record, amber is a verdict held against a registered threshold. <b>say:</b> "the export ships without the markup; the bindings live in the receipt." Twenty seconds, no grammar lesson. Colour law: green means proven, dashed means a verdict held against a declared rule, dotted means a value held against a record. Amber is reserved for the human layer everywhere in this deck. <b>trap:</b> teaching the syntax. Nobody needs to parse it; they need to see it is real.</aside>
+</section>
+
+<section class="slide" id="s4reg">
+  <h1>The whole judge, when the input is exact.</h1>
+  <div class="register">
+    <div class="rij"><span class="naam">IS_IN_WARRANTY</span><span class="regel">warrantyDaysLeft &gt; 0</span><span class="label">"you are still covered"</span></div>
+    <div class="rij"><span class="naam">IS_SHORT_STAY</span><span class="regel">stayDays &lt;= 90</span><span class="label">"within the visa-free limit"</span></div>
+    <div class="rij"><span class="naam">SLA_MET</span><span class="regel">responseHours &lt;= 4</span><span class="label">"inside the agreed window"</span></div>
+  </div>
+  <p class="body">A verdict may only bind to a rule that is declared here: one field, one comparison,
+  one value, one label, one source. <b>Small enough to read aloud. Total enough to always answer.</b>
+  A missing rule is a refusal, never an improvisation.</p>
+  <div class="mono-rows">
+    <div><b>Exact means signed.</b> stayDays arrived inside the credential; the model never touched
+    the number. Signed field, declared rule: <b>the machine closes it alone</b>, and the agent moves on.</div>
+    <div style="border-left-color:rgba(229,181,103,.6)"><b>The policy itself stays prose.</b> Nobody turned
+    "listed nationals may stay ninety days" into code. The model reads it and proposes the binding;
+    <b>a person signs that reading once</b>, and the table grows a row.</div>
+  </div>
+  <p class="statline">The interpreter is as unbounded as language. <b>The judge is provably total:</b> every check terminates, every check answers. This is all of it.</p>
+  <aside class="noot"><b>job:</b> the payoff of the whole architecture: the decidable judge, shown in full. This is the slide for compliance people: the policy surface an auditor can read over coffee, and the reason a verdict always terminates with an answer. <b>say:</b> "when the input is exact and the rule is written, this table is the entire judge, and agents can run alone. Where interpretation entered, a person joins the bench. And when a rule is missing, the gate refuses; the model never invents law." <b>trap:</b> calling it a rules engine. It is deliberately much less than one, and that is the feature. <b>vocab trap in identity rooms:</b> their "trust registry" says WHO to trust, ours says WHICH rules judge. Always say "threshold registry", never bare "the registry".</aside>
+</section>
+
+<section class="slide" id="s4b2">
+  <h1>A different object, in good company.</h1>
+  <p class="body">Every hard part is borrowed from giants: Markdown’s inline marks, Certificate
+  Transparency’s trees, git’s content addressing, SD-JWT credentials from the IETF, DIDs from the W3C.
+  <b>Only the composition is new.</b> The neighbours sign something else:</p>
+  <div class="mono-rows">
+    <div><b>C2PA</b> signs a file's provenance: who made the media and how it was edited. Its object is the container; ours is the claims inside a text and the human judgement of them.</div>
+    <div><b>E-signatures</b> attest a whole document as one unit: integrity for the blob. We work one field finer, so a value carries its own proof and its own reading.</div>
+    <div><b>RAG citations</b> point to sources, useful context in the loop. We add what a link does not: a verbatim check, survival through regeneration, and a signature.</div>
+    <div><b>LLM guardrails</b> are a second model's opinion at runtime, valuable in the loop. Alongside them we leave a receipt a third party can re-check.</div>
+  </div>
+  <p class="statline">ProveML signs <b>the claims and the judgement</b>: value granularity, evidence bound, with survival rules for every yes.</p>
+  <aside class="noot"><b>job:</b> place yourself on their map before they place you, and generously. "Is this C2PA?" is coming; the answer is "closest cousin, different object: they sign the container, we sign the claims and the human judgement of them." <b>say:</b> lead each row with what the neighbour does well, then our different object, never "worse"; several of these are allies, not rivals. The title itself signals it: in good company. <b>trap:</b> trash talk. Standards people remember who was gracious about neighbours.</aside>
+</section>
+
+<section class="slide" id="s4c">
+  <h1>The summons is one page. Yes or no.</h1>
+  <p class="body">This is where the summoned person lands: <b>only the readings where interpretation
+  happened</b>, each beside its proof. Nothing else asks for their time.</p>
+  <div class="rmock">
+    <div class="rmock-bar"><span>5 readings: 2 your call, 3 plain to see</span><span>4/5 judged</span></div>
+    <div class="rmock-row">
+      <div class="rmock-claim"><span class="k">you wrote</span>warranty ends <b>3 June 2026</b></div>
+      <div class="rmock-ev"><q>your warranty runs until 3 June 2026</q><span class="loc">order confirmation, block 5 of 6, root d48d98ca, signed by the publisher</span></div>
+      <div class="rmock-judge"><span class="pil aan">yes</span><span class="pil">no</span></div>
+    </div>
+    <div class="rmock-row">
+      <div class="rmock-claim"><span class="k">you wrote</span>shipped <b>14 March</b></div>
+      <div class="rmock-ev"><q>dispatched on the fourteenth of March</q><span class="loc">carrier note, block 2 of 4. It read this as 14 March. Right?</span></div>
+      <div class="rmock-judge"><span class="pil">yes</span><span class="pil">no</span><span class="open">your call</span></div>
+    </div>
+    <div class="rmock-row">
+      <div class="rmock-claim"><span class="k">you wrote</span>balance <b>1,240 euro</b></div>
+      <div class="rmock-ev"><span class="abs">Not in any source it has. It stays out of the text until you give it one.</span></div>
+      <div class="rmock-judge"><span class="open">your call</span></div>
+    </div>
+  </div>
+  <p class="statline">Most take a glance: the value is right there in the quote. <b>The few marked your call are the only ones that could actually be wrong.</b></p>
+  <aside class="noot"><b>job:</b> show the human moment. This is what oversight looks like at a desk: two columns, a quote with its proof under it, a yes and a no. The third row is the quiet flex: what has no source does not ship. <b>say:</b> "most take a glance; the few marked your call are the only ones that could actually be wrong." <b>trap:</b> lingering. This is a screenshot of a rhythm, not a demo; the live page is for afterwards.</aside>
+</section>
+
+<section class="slide" id="s5">
+  <h1>The yes is a key, not a promise.</h1>
+  <ul class="punten">
+    <li>Every archived source folds to <b>one signable root</b> under a versioned canonicalisation contract.</li>
+    <li>A human judges each reading, <b>yes or no</b>, next to its proof.</li>
+    <li>Each yes is keyed to the fingerprints of its block <b>and the blocks beside it</b>. Meaning is not block-local.</li>
+    <li>The judgements, plus the output's own root, fold into <b>one review root</b>, signed back as a credential.
+    Flip a judgement, change a word, touch a source: <b>the signature no longer matches</b>.</li>
+    <li>So a downstream policy can say: <b>a field the agent wrote is admissible input, if it arrives
+    under a review root</b>. There are only two ways a value gets there: byte-proven from a signed
+    source, or signed off by a person. There is no third way in.</li>
+  </ul>
+  <p class="statline">Regenerate the document: only what moved comes back. <b>Human judgement, memoized.</b></p>
+  <aside class="noot"><b>job:</b> the deepest novelty in plain words, and the best attack answered before anyone raises it. Nobody else makes human sign-off incremental; "memoized" makes the CS people feel it. <b>say:</b> "meaning is not block-local, so the key is not either: change the frame above a figure and the yes dies with it." <b>also say:</b> "checked by anyone, trusted from no one." And the loop-closer for the agent folks: a policy can now admit an agent-written field as input, not because the model is trusted, but because provenance or a person stands behind every value under the root. Admissibility, not truth: the word "true" stays out of it. If an SD-JWT purist stirs: zero disclosures, deliberately; selective disclosure lives in the merkle layer. <b>in identity rooms:</b> "your trust registries say who to trust; we make that answer survive an AI in the middle." We ride the stack, we don't extend it. <b>trap:</b> saying merkle before saying benefit. Benefit first, tree on request.</aside>
+</section>
+
+<section class="slide" id="s7">
+  <h1>It runs.</h1>
+  <div class="mono-rows">
+    <div><b>Live publisher credential</b> on abovebeyond.ai: did:web, resolvable right now, from your phone</div>
+    <div><b>Independent verifier in Python:</b> 30 lines, zero shared code, same roots</div>
+    <div><b>Full loop executed:</b> archive, judge in the browser, hand back, sign, verify</div>
+    <div><b>Canonicalisation v2:</b> NFC normalised, zero-width stripped, Trojan Source refused</div>
+    <div><b>378 tests green</b> at 0.8.0, including a named adversarial battery</div>
+    <div><b>Open source,</b> Apache-2.0, on npm as <span style="color:var(--sky)">proveml</span></div>
+  </div>
+  <p class="statline">Everything on this slide happened. <b>Nothing on this slide is a plan.</b></p>
+  <aside class="noot"><b>job:</b> release four slides of accumulated scepticism. Rows are ordered by strength: the live credential is the only claim verifiable from a phone during the meeting, so it goes first. Update the test count and version before each showing; a stale number on this slide undoes the slide. <b>say:</b> "pick any row and I will show it to you live." Mean it. <b>trap:</b> the demo shop issuer is an ephemeral key with a stubbed resolver; if you show that one, confess it in the same breath. The abovebeyond.ai credential is the non-circular one. Lead with it.</aside>
+</section>
+
+<section class="slide" id="s8">
+  <h1>What we do not claim.</h1>
+  <ul class="punten">
+    <li><b>Fidelity, not truth.</b> The chain certifies faithful quotation, never the wisdom of source selection.</li>
+    <li><b>Atoms, not narrative.</b> Prose stays prose, and readers judge prose as prose.</li>
+    <li><b>Revocation and expiry:</b> envelope-layer roadmap, not yet built.</li>
+    <li><b>Canonicalisation is unaudited,</b> and versioned precisely so it can be replaced.</li>
+  </ul>
+  <p class="statline">The concession list is part of the spec.</p>
+  <aside class="noot"><b>job:</b> de-risk the decision maker. Their real question is never "is this clever" but "will this person embarrass me in front of my people." A volunteered limit list answers it better than any capability. <b>say:</b> go SLOW here; this is the trust slide. <b>trap:</b> rushing past it as if ashamed. This slide is the pitch.</aside>
+</section>
+
+<section class="slide" id="s9">
+  <h1>The demand is here. So is the on-ramp.</h1>
+  <ul class="punten">
+    <li><b>Regulated environments:</b> human oversight of AI is becoming mandatory, and today it is a checkbox nobody can verify. This makes it a review someone can check.</li>
+    <li><b>Reliable agents:</b> an agent is only useful acting across organisations, on data it did not make. It can demand the review root before it acts, so <b>autonomy becomes a property you can check, not a setting you toggle</b>.</li>
+    <li><b>Adopt without waiting for anyone:</b> embed a zero-dependency module between a model call and a screen, or install <span style="font-family:'Spline Sans Mono',ui-monospace,monospace;color:var(--amber)">(&#710;&#9685;&#710;)&#9109;</span> Vera in the tools people already write with. No new app, no two-sided market.</li>
+    <li><b>Full value at zero network adoption:</b> unsigned sources still archive and prove; every signed source only makes a receipt stronger.</li>
+  </ul>
+  <p class="statline">Responsible adoption of AI, made checkable, <b>and it plugs into what you already run.</b></p>
+  <aside class="noot"><b>job:</b> the landing before the close: urgency and adoption as one beat, so the ask feels timely and frictionless, never needy. Oversight law pulls from above, the agent economy pushes from below, both land on the review credential, and the on-ramp answers "so how do we start" before anyone asks. <b>agent line:</b> "cross-org agents run on trust; registries already answer who to trust, and we make that answer survive an AI in the middle, so agents from different ecosystems transact on first contact, no integration project per pair." If pushed on schema-less interop: the odd case does not fail silently, it summons a person, and each summons shrinks the registry gap one signed row. <b>adoption line:</b> "trust infra usually dies of two-sided markets; value at zero adoption inverts that, and there are two doors: Vera is retail, the modules are wholesale. Embed a module between an API wrapper and a screen without ever saying our name, and that is fine, the contracts are the point." <b>traps:</b> legal overclaim, say "shaped for it", never "compliant with it"; and do not let this turn into a product pitch, Vera is adoption proof, not the subject.</aside>
+</section>
+
+<section class="slide" id="s12">
+  <p class="kicker">abovebeyond.ai/proveml</p>
+  <svg class="merkteken" viewBox="2 5 28 20" role="img" aria-label="ProveML">
+    <circle cx="16" cy="12" r="5.4" fill="#6ee7a8" filter="url(#gl)" opacity=".45"/>
+    <circle cx="16" cy="12" r="4.6" fill="url(#m1)"/>
+    <rect x="3" y="21" width="26" height="2.6" rx="1.3" fill="url(#m1)"/>
+  </svg>
+  <h1 class="groot"><span class="g">ProveML</span></h1>
+  <p class="body">Shane Deconinck, Above Beyond.</p>
+  <p class="statline">Next, agents will not just write for you. They will act for you. <b>Your name will still be on it.</b></p>
+  <aside class="noot"><b>job:</b> the quotable exit; the last slide gets photographed, and the ask lives here, spoken, never on a slide. Choose one ask per audience before walking in: a pilot in regulated reporting, a review of the spec, an introduction, a home for the method. <b>say:</b> the ask, then silence; the silence is the close. <b>trap:</b> a second ask, a plan B, any optionality. One door.</aside>
+</section>
+
+<div class="voet">
+  <span class="teller" id="teller">1 / 12</span>
+  <div class="groef"><i id="vulling"></i></div>
+  <span class="hint" id="hint">arrows to move, n for notes</span>
+</div>
+
+<script>
+const dias = [...document.querySelectorAll('.slide')];
+let i = 0;
+function toon(n) {
+  i = Math.max(0, Math.min(dias.length - 1, n));
+  dias.forEach((d, j) => d.classList.toggle('actief', j === i));
+  document.getElementById('teller').textContent = (i + 1) + ' / ' + dias.length;
+  document.getElementById('vulling').style.width = ((i + 1) / dias.length * 100) + '%';
+  if (i > 0) document.getElementById('hint').hidden = true;
+}
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') toon(i + 1);
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') toon(i - 1);
+  else if (e.key === 'Home') toon(0);
+  else if (e.key === 'End') toon(dias.length - 1);
+  else if (e.key === 'n' || e.key === 'N') document.body.classList.toggle('met-noten');
+});
+addEventListener('click', (e) => {
+  if (e.target.closest('.noot')) return;
+  if (e.clientX > innerWidth * 0.55) toon(i + 1);
+  else if (e.clientX < innerWidth * 0.2) toon(i - 1);
+});
+toon(0);
+</script>
+
+</body>
+</html>
