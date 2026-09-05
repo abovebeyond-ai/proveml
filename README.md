@@ -106,6 +106,17 @@ no construct covers.
 (CLI: `--strict`) each unmarked number is a finding. Years, list markers and
 numbers inside code are not counted.
 
+Two readings. The default is for prose: a bare year, a list marker, a fiscal
+form and a digit glued to letters (`3BS`, `FY2025`) are not claims. Pass
+`coverage: 'certificate'` and the verifier reads the text as an agent's warrant
+for an action: every numeral in any script counts, nothing is exempt, and the
+words inside a judgement's braces are scanned too. A certificate has no
+business carrying a number the verifier did not see.
+
+Every judgement in `details` also reports the `entity` it bound to and the
+`condition` as written, so a caller that grades facts by provenance can grade
+the right record instead of guessing from position.
+
 ## What it does not do
 
 - It verifies **consistency with your data**, not truth. Wrong data, wrong verified claims.
@@ -327,7 +338,7 @@ console.log(verification.verified, verification.total);
 console.log(PROVEML_CLASSNAMES.fact); // "proveml-fact"
 ```
 
-Use the plugin when you want full `markdown-it` integration. Use `proveml/render` when you want one small renderer that can be embedded directly in ordinary HTML.
+Use the plugin when you want full `markdown-it` integration. Use `proveml/render` when you want one small renderer that can be embedded directly in ordinary HTML. `proveml/render` is the canonical name; `proveml/render-html` and `proveml/renderer` resolve to the same renderer and will go in 1.0.
 
 If trust metadata is present and `showProofPaths` is enabled, the audit proof output includes both the fact path and the trust status/backend.
 
