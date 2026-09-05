@@ -146,5 +146,33 @@ console.log('\n=== attack: invert the frame, keep the quoted bytes ===');
     assert('the yes dies anyway: the neighborhood is in the key', idOf(reviewPage({ store: st, subjects: subj, manifests: { x: audited } }).html) !== idOf(reviewPage({ store: st, subjects: subj, manifests: { x: projected } }).html));
 }
 
+console.log('\n=== attack: numbers the prose reading forgives, in a certificate ===');
+{
+    // The red team of 2026-09-04 walked all of these past strict mode: a number in
+    // a judgement's words, fullwidth and superscript digits, a bare year, a digit
+    // glued to letters. A certificate warrants an action; none of them may pass.
+    const cstore = { 'invoice:i1.name': 'Tape', 'invoice:i1.amount': 5, 'invoice:i1.due_in_days': 0 };
+    const cth = { DUE: { field: 'due_in_days', op: 'lte', value: 0, label: 'due', source: 'test' }, LIM: { field: 'amount', op: 'lte', value: 200, label: 'within', source: 'test' } };
+    const cert = '@[invoice:i1]{Tape} totals %[amount]{5} EUR, is ?[d: DUE]{due} and ?[l: LIM]{within the limit of 5000 EUR}. Quotes: １５００ EUR, ¹⁵⁰⁰, 2000 EUR, 1500EUR.';
+    const prose = verifyProveml(cert, cstore, { thresholds: cth, strict: true });
+    const strict = verifyProveml(cert, cstore, { thresholds: cth, strict: true, coverage: 'certificate' });
+    assert('the prose reading lets every one of them through', prose.errors.length === 0, JSON.stringify(prose.errors));
+    for (const n of ['5000', '１５００', '¹⁵⁰⁰', '2000', '1500']) assert(`certificate reading flags ${n}`, strict.errors.some((e) => e.startsWith(n + ' in prose')), JSON.stringify(strict.errors));
+    assert('the marks themselves still verify', strict.total === 4 && strict.verified === 4);
+}
+
+console.log('\n=== attack: a judgement whose entity nobody can see ===');
+{
+    // Scope games only work while the verifier keeps to itself which entity a
+    // judgement bound to. Every inference detail now names it, and the condition.
+    const sstore = { 'supplier:s1.name': 'Duvel', 'supplier:s1.vetted': 1, 'invoice:i1.name': 'Tape', 'invoice:i1.due_in_days': 0, 'action:a1.name': 'pay', 'action:a1.amount': 5 };
+    const sth = { VETTED: { field: 'vetted', op: 'eq', value: 1, label: 'vetted', source: 'test' }, DUE: { field: 'due_in_days', op: 'lte', value: 0, label: 'due', source: 'test' } };
+    const doc = '@[supplier:s1]{Duvel} is ?[v: VETTED]{vetted} and sent @[invoice:i1]{Tape}; @[action:a1 "pay"]{sends %[amount]{5} EUR} is ?[d: DUE]{due}.';
+    const r = verifyProveml(doc, sstore, { thresholds: sth });
+    const inf = r.details.filter((d) => d.type === 'inference');
+    assert('the vetting judgement names the supplier', inf[0].entity === 'supplier:s1' && inf[0].condition === 'VETTED', JSON.stringify(inf[0]));
+    assert('the due judgement names the invoice the stack restored, not the action the eye sees last', inf[1].entity === 'invoice:i1', JSON.stringify(inf[1]));
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

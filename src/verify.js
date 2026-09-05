@@ -28,6 +28,9 @@ import { assertRegistry, checkEntity, checkFact, evaluateCondition, mergeTrustFi
  *   rendered name is shared by another record of the same type is a finding
  *   too (the reader could not tell them apart). Without it, verification only
  *   judges what is inside markup; coverage and uniqueness are still reported.
+ *   options.coverage 'certificate' applies the stricter numeral rule of
+ *   unmarkedNumbers (any script, no exemptions, judgement text scanned): for
+ *   text that warrants an action, not prose for a reader.
  *   options.thresholds replaces the built-in registry for this verification:
  *   a domain defines its own vocabulary, and the built-in example thresholds
  *   (education, finance, health) stop being part of the allowed language.
@@ -109,6 +112,8 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
                 results.details.push({
                     type: 'inference',
                     label: tok.label,
+                    condition: tok.condition,
+                    entity: currentEntity,
                     status: 'verified',
                     ...span,
                     ...mergeTrustFields([result])
@@ -118,6 +123,8 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
                 results.details.push({
                     type: 'inference',
                     label: tok.label,
+                    condition: tok.condition,
+                    entity: currentEntity,
                     // unknown = could not be resolved (unregistered threshold,
                     // missing operand); distinct from a condition that resolved
                     // to false. Renderers show unknown as unverifiable, false
@@ -134,7 +141,7 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
 
     // Coverage: how much of the numeric content is inside a claim at all.
     // Reported always; in strict mode an unmarked number is also a finding.
-    const unmarked = unmarkedNumbers(markdown);
+    const unmarked = unmarkedNumbers(markdown, { mode: options?.coverage === 'certificate' ? 'certificate' : 'prose' });
     const marked = tokens.filter(t => t.type === 'fact' && /\d/.test(t.value)).length;
     results.unmarked = unmarked;
     results.coverage = {
@@ -168,9 +175,21 @@ export function verifyProveml(markdown, factStoreOrAdapter, options) {
  * Digits inside words (3BS, h1, FY2025) are identifiers, not claims. Prose
  * inside a scoped entity's braces is prose and is scanned.
  *
+ * mode 'certificate' is the stricter reading a gateway needs when the text is
+ * an agent's warrant for an action rather than prose for a reader: every
+ * numeral in any script (\p{N}, so fullwidth, superscript and Arabic-Indic
+ * digits too) counts, there are no year, fiscal, list-marker or identifier
+ * exemptions, and the words inside a judgement's braces are scanned as prose.
+ * The red team of 2026-09-04 walked "within the limit of 5000 EUR", "１５００
+ * EUR" and "2000 EUR" past the prose reading; a certificate has no business
+ * carrying a number the verifier did not see.
+ *
+ * @param {string} markdown
+ * @param {{ mode?: 'prose' | 'certificate' }} [options]
  * @returns {{ value: string, pos: number, end: number }[]}
  */
-export function unmarkedNumbers(markdown) {
+export function unmarkedNumbers(markdown, options) {
+    const certificate = options?.mode === 'certificate';
     const skipped = [];
     const tokens = tokenizeProveml(markdown, 0, skipped);
     const covered = [...skipped];
@@ -178,6 +197,11 @@ export function unmarkedNumbers(markdown) {
         if (t.type === 'entity' && t.scoped) {
             covered.push({ pos: t.pos, end: t.end - t.content.length - 1 }); // header up to the brace
             covered.push({ pos: t.end - 1, end: t.end });                   // the closing brace
+        } else if (t.type === 'inference' && certificate) {
+            // the header ?[label: COND]{ is markup; the words inside the braces are prose
+            const braceOpen = markdown.indexOf('{', t.pos);
+            covered.push({ pos: t.pos, end: braceOpen + 1 });
+            covered.push({ pos: t.end - 1, end: t.end });
         } else if (t.type !== 'entity_close') {
             covered.push({ pos: t.pos, end: t.end });
         }
@@ -189,10 +213,16 @@ export function unmarkedNumbers(markdown) {
     let prose = markdown;
     const blank = (from, to) => { prose = prose.slice(0, from) + ' '.repeat(to - from) + prose.slice(to); };
     for (const c of covered) blank(c.pos, c.end);
+    const out = [];
+    if (certificate) {
+        for (const m of prose.matchAll(/\p{N}+(?:[.,]\p{N}+)*/gu)) {
+            out.push({ value: m[0], pos: m.index, end: m.index + m[0].length });
+        }
+        return out;
+    }
     for (const re of [/^[ \t]*\d+[.)][ \t]/gm, /\bFY ?(?:19|20)\d{2}\b/g, /\bQ[1-4] ?(?:19|20)\d{2}\b/g, /\b(?:19|20)\d{2}\b/g]) {
         for (const m of prose.matchAll(re)) blank(m.index, m.index + m[0].length);
     }
-    const out = [];
     for (const m of prose.matchAll(/(?<![A-Za-z0-9.,])\d+(?:[.,]\d+)*(?![A-Za-z0-9])/g)) {
         out.push({ value: m[0], pos: m.index, end: m.index + m[0].length });
     }

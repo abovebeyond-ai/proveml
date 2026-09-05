@@ -43,6 +43,13 @@ export interface VerifyProvemlOptions {
    */
   strict?: boolean;
   /**
+   * 'certificate' applies the stricter numeral rule: every numeral in any
+   * script counts, no year, fiscal, list-marker or identifier exemptions, and
+   * the words inside a judgement's braces are scanned as prose. For text that
+   * warrants an action rather than prose for a reader. Default 'prose'.
+   */
+  coverage?: 'prose' | 'certificate';
+  /**
    * The threshold registry for this verification. When given it REPLACES the
    * built-in example registry: a domain defines its own vocabulary, and names
    * outside it are unknown. Spread the built-in in to merge instead.
@@ -96,6 +103,10 @@ export interface FactVerificationDetail extends TrustMetadataFields, Verificatio
 export interface InferenceVerificationDetail extends TrustMetadataFields, VerificationSpan {
   type: 'inference';
   label: string;
+  /** The condition text as written: a threshold name, or a composition. */
+  condition: string;
+  /** The entity in force when the judgement was evaluated, or null outside any scope. */
+  entity: string | null;
   /**
    * 'failed' = the condition resolved to false; 'unverifiable' = it could not
    * be resolved (unknown threshold, missing operand, undefined label). The

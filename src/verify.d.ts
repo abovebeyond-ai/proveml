@@ -14,7 +14,7 @@ export function verifyProveml(
 
 export function stripProveml(markdown: string): string;
 
-export function unmarkedNumbers(markdown: string): UnmarkedNumber[];
+export function unmarkedNumbers(markdown: string, options?: { mode?: 'prose' | 'certificate' }): UnmarkedNumber[];
 
 export function tokenizeProveml(src: string, baseOffset?: number, skipped?: { pos: number; end: number }[]): ProveMLToken[];
 
