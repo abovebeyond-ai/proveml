@@ -77,7 +77,7 @@ npx proveml prompt --facts facts.json --thresholds registry.json
 
 ## Review: the judgements no machine can make
 
-The review page is called Vera. It shows a person only the readings where interpretation happened, each beside its proof, takes a yes or a no, and folds the judgements into one signed review root. It ships in this package (`src/review-page.js`) and as the `vera` skill; `docs/deck.html` walks through the whole chain in twelve slides.
+Vera is the collaborator built on this: a skill that co-writes a report against archived sources, and a review page that puts each reading beside its proof, marks the ones that need a person, takes a yes or a no, and folds the judgements into one signed review root. The page ships in this package (`src/review-page.js`), the skill as `vera`; `docs/deck.html` walks through the whole chain in fourteen slides.
 
 Some links in a chain of evidence are not lookups: whether a stored value is a
 fair reading of a quote, whether a report may go out. `proveml/review` gives
@@ -435,6 +435,6 @@ The paper, reference-audit workflow, benchmarks, datasets, and experiment output
 - [`docs/index.html`](docs/index.html): human-friendly docs
 - [`docs/agent-reference.md`](docs/agent-reference.md): reference for LLM agents
 - [`docs/fact-store.md`](docs/fact-store.md): fact-store guide
-- [`docs/deck.html`](docs/deck.html): the deck, twelve slides with speaker notes
+- [`docs/deck.html`](docs/deck.html): the deck, fourteen slides with speaker notes
 - [`llms.txt`](llms.txt): agent discovery file
 - Paper, benchmarks and experiments: [proveml-research](https://github.com/abovebeyond-ai/proveml-research)
