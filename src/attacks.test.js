@@ -88,5 +88,28 @@ console.log('\n=== attack: keeping the checkmark while changing what was checked
     assert('the old judgement is orphaned, not inherited', after.judged === 0 && after.orphaned.includes(id));
 }
 
+console.log('\n=== attack: the same pixels, different bytes ===');
+{
+    const nfc = 'Caf\u00E9 prices rose.';
+    const nfd = 'Cafe\u0301 prices rose.';
+    assert('an NFD re-encoding keeps the root (c14n-2)', buildManifest(nfc, { html: false }).root === buildManifest(nfd, { html: false }).root);
+    assert('c14n-1 had this hole, pinned as history', buildManifest(nfc, { html: false, contract: 'proveml-c14n-1' }).root !== buildManifest(nfd, { html: false, contract: 'proveml-c14n-1' }).root);
+    assert('zero-width smuggling is flattened', buildManifest('pay 1\u200B00 euro', { html: false }).root === buildManifest('pay 100 euro', { html: false }).root);
+}
+
+console.log('\n=== attack: Trojan Source, the display disagrees with the bytes ===');
+{
+    let threw = null;
+    try { buildManifest('total \u202E001\u202C euro', { html: false }); } catch (e) { threw = e.message; }
+    assert('bidi controls are refused, loudly and by name', /Trojan Source/.test(threw || ''));
+    assert('old c14n-1 manifests still verify', (() => {
+        const m = buildManifest('plain line', { html: false, contract: 'proveml-c14n-1' });
+        return verifyInclusion(m.root, m.leaves[0].text, inclusionProof(m, 0));
+    })());
+    assert('an unknown contract is refused', (() => {
+        try { buildManifest('x', { html: false, contract: 'c14n-x' }); return false; } catch { return true; }
+    })());
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

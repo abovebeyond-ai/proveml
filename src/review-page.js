@@ -20,6 +20,7 @@
  */
 
 import { verifyProveml } from './verify.js';
+import { quoteEvidence } from './manifest.js';
 import { renderProveml } from './render-html.js';
 import { reviewId } from './review.js';
 
@@ -71,6 +72,14 @@ export function evidenceReviewId(subjectId, e) {
  * @param {object} [opts.committedReview]  a review JSON ({judgements}) baked
  *   into the page; the reviewer's local judgements overlay it
  * @param {object} [opts.thresholds]  registry passed to the verifier
+ * @param {Record<string, object>} [opts.manifests]  merkle manifest per
+ *   subject id (see manifest.js). A quote of a manifested subject must sit
+ *   verbatim within a single leaf or the build refuses; its loc line gains a
+ *   computable locator (block, root) and the return carries the inclusion
+ *   proofs, ready to be written beside the page and checked by a stranger
+ * @param {object} [opts.brand]  {mark?, name?}: another face on the lockup
+ *   (a skill like Vera fronting the page); provenance then moves to the
+ *   statline, which says the page is built on proveml
  * @returns {{ html: string, verified: number, total: number, ids: string[] }}
  */
 export function reviewPage(opts) {
@@ -78,20 +87,30 @@ export function reviewPage(opts) {
         store, subjects,
         name = 'review', storeName = 'store', subjectsWord = 'subjects',
         leftLabel = 'the output', rightLabel = 'the evidence',
-        snapshots = {}, committedReview = null, thresholds,
+        snapshots: givenSnapshots = {}, committedReview = null, thresholds, brand = null,
+        manifests = {},
     } = opts;
+    // A manifest can stand in for a snapshot: its leaves ARE the canonical
+    // text, so the substring gate and the hover context work unchanged.
+    const snapshots = { ...givenSnapshots };
+    for (const sj of Array.isArray(opts.subjects) ? opts.subjects : []) {
+        if (manifests[sj.id] && snapshots[sj.id] === undefined) {
+            snapshots[sj.id] = manifests[sj.id].leaves.map((l) => l.text).join('\n');
+        }
+    }
     if (!store || typeof store !== 'object') throw new Error('reviewPage: expected a fact store object.');
     if (!Array.isArray(subjects) || subjects.length === 0) throw new Error('reviewPage: expected a non-empty subjects array.');
 
     let total = 0, verified = 0;
     const ids = [];
+    const proofs = [];
 
     const cards = subjects.map((s, i) => {
         const v = verifyProveml(s.claim, store, thresholds ? { thresholds } : undefined);
         total += v.total; verified += v.verified;
         if (v.errors.length) throw new Error(`${s.id}: ${v.errors.join('; ')}`);
         const left = renderProveml(s.claim, store).html;
-        const right = (s.evidence || []).map((e) => evidenceBlock(s, e, snapshots, ids)).join('');
+        const right = (s.evidence || []).map((e) => evidenceBlock(s, e, snapshots, ids, manifests[s.id], proofs)).join('');
         const meta = s.meta ? `${esc(s.meta)} ` : '';
         return `<section class="pair" id="${attr(s.id)}">
   <header><h2><span class="nr">${String(i + 1).padStart(2, '0')}</span>${esc(s.title)}</h2><p class="meta">${meta}${v.verified}/${v.total} claims verified, ${(s.evidence || []).length} fields of evidence.</p></header>
@@ -109,12 +128,12 @@ export function reviewPage(opts) {
 
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProveML ${esc(name)}</title><style>${CSS}</style></head><body>
 <div class="wrap">
-<div class="reviewbar"><h1 class="lockup">${MERKTEKEN}<span class="pml-name">proveml</span><span class="tool">${esc(name)}</span></h1><span class="rv-nav"><button id="rv-prev-src" class="rv-pill rv-arrow" aria-label="previous source">\u2191</button><button id="rv-next-src" class="rv-pill rv-arrow" aria-label="next source">\u2193</button></span><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-pill">next unjudged</button><button id="rv-literal" class="rv-link">confirm literal readings</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
-<p class="statline">store ${esc(storeName)}, ${subjects.length} ${esc(subjectsWord)}: <b>${verified}/${total} claims machine-verified</b>, built ${built}.</p>
+<div class="reviewbar"><h1 class="lockup">${brand ? (brand.mark ? `<span class="brand-mark">${esc(brand.mark)}</span>` : '') : MERKTEKEN}<span class="pml-name">${esc(brand && brand.name ? brand.name : 'proveml')}</span><span class="tool">${esc(name)}</span></h1><span class="rv-view" role="group" aria-label="view"><button class="rv-vw" data-view="sources" aria-pressed="true">by source</button><button class="rv-vw" data-view="full" aria-pressed="false">full text</button></span><span class="rv-nav"><button id="rv-prev-src" class="rv-act rv-arrow" aria-label="previous source">\u2191</button><button id="rv-next-src" class="rv-act rv-arrow" aria-label="next source">\u2193</button></span><span id="rv-progress"></span><div class="rv-meter"><div class="rv-fill"></div></div><span class="rv-actions"><button id="rv-next" class="rv-btn rv-primary">next unjudged</button><button id="rv-literal" class="rv-btn">mark the plain ones fair</button><label class="rv-filter"><input type="checkbox" id="rv-only"> only unjudged</label><button id="rv-export" class="rv-link">copy review as JSON</button></span></div>
+<p class="statline">store ${esc(storeName)}, ${subjects.length} ${esc(subjectsWord)}: <b>${verified}/${total} claims machine-verified</b>, built ${built}${brand ? ' on proveml' : ''}.</p>
 ${cards}
 </div>${committedTag}<script>${SCRIPT}</script></body></html>`;
 
-    return { html, verified, total, ids };
+    return { html, verified, total, ids, proofs };
 }
 
 function isLiteral(e) {
@@ -125,7 +144,35 @@ function isLiteral(e) {
     return quotes.some((q) => squash(String(q || '')).toLowerCase().includes(v));
 }
 
-function evidenceBlock(s, e, snapshots, ids) {
+/**
+ * The quote's neighbourhood in its snapshot, for the hover tip. The reviewer
+ * judges a reading faster when the sentences around the quote come to them
+ * instead of asking a click into the archive. Text is escaped here; the only
+ * markup in the tip is our own <b> around the quote.
+ */
+function quoteContext(snap, quote, span = 170) {
+    if (snap === undefined) return '';
+    const hay = squash(snap), needle = squash(quote);
+    const i = hay.indexOf(needle);
+    if (i < 0) return '';
+    let a = Math.max(0, i - span), b = Math.min(hay.length, i + needle.length + span);
+    if (a > 0) a = hay.indexOf(' ', a) + 1;
+    if (b < hay.length) b = hay.lastIndexOf(' ', b);
+    const pre = (a > 0 ? '\u2026' : '') + hay.slice(a, i);
+    const post = hay.slice(i + needle.length, b) + (b < hay.length ? '\u2026' : '');
+    return `${esc(pre)}<b>${esc(needle)}</b>${esc(post)}`.replace(/"/g, '&quot;');
+}
+
+function proofNoteFor(s, e, manifest, q, proofs, lead) {
+    if (!manifest) return '';
+    let b;
+    try { b = quoteEvidence(manifest, q.sourceQuote); }
+    catch (err) { throw new Error(`${s.id}.${e.field}: ${err.message}`); }
+    proofs.push({ subject: s.id, field: e.field, ...b });
+    return `${lead ? ', ' : ''}block ${b.leafIndex + 1} of ${manifest.leaves.length}, root ${esc(b.root.slice(0, 10))}\u2026`;
+}
+
+function evidenceBlock(s, e, snapshots, ids, manifest, proofs) {
     const rid = evidenceReviewId(s.id, e);
     ids.push(rid);
     const literal = isLiteral(e);
@@ -146,23 +193,33 @@ function evidenceBlock(s, e, snapshots, ids) {
             const q = quotes[0];
             const loc = q.sourceLocator ? `<b>${esc(String(q.sourceLocator).replace(/_/g, ' '))}</b>` : '';
             const link = e.sourceHref ? `${loc ? ', ' : ''}verbatim in the <a href="${attr(e.sourceHref)}">archived source</a>` : '';
-            body = `<p class="quote">\u201C${esc(q.sourceQuote)}\u201D</p>${loc || link ? `<p class="loc">${loc}${link}</p>` : ''}`;
+            const pn = proofNoteFor(s, e, manifest, q, proofs, loc || link);
+            const ctx = quoteContext(snapshots[s.id], q.sourceQuote);
+            body = `<p class="quote"${ctx ? ` title="${ctx}"` : ''}>\u201C${esc(q.sourceQuote)}\u201D</p>${loc || link || pn ? `<p class="loc">${loc}${link}${pn}</p>` : ''}`;
         } else {
             body = quotes.map((q) => {
-                const loc = q.sourceLocator ? `<p class="loc">${esc(String(q.sourceLocator).replace(/_/g, ' '))}</p>` : '';
-                return `<p class="quote">\u201C${esc(q.sourceQuote)}\u201D</p>${loc}`;
+                const pn = proofNoteFor(s, e, manifest, q, proofs, q.sourceLocator);
+                const loc = q.sourceLocator || pn ? `<p class="loc">${esc(String(q.sourceLocator || '').replace(/_/g, ' '))}${pn}</p>` : '';
+                const ctx = quoteContext(snapshots[s.id], q.sourceQuote);
+                return `<p class="quote"${ctx ? ` title="${ctx}"` : ''}>\u201C${esc(q.sourceQuote)}\u201D</p>${loc}`;
             }).join('');
             body += `<p class="loc">each verbatim in the${e.sourceHref ? ` <a href="${attr(e.sourceHref)}">archived source</a>` : ' archived source'}</p>`;
         }
     } else if (e.basis === 'derived') {
         body = `<p class="basis basis-derived">derived, not quoted</p>`;
     } else if (e.basis === 'absence') {
-        body = `<p class="basis basis-absence">rests on absence \u2014 you cannot quote a source not having something</p>`;
+        // An absence is the one reading no quote can carry: the only honest
+        // evidence is the whole source, handed to the reviewer to scan. So
+        // when the archive is here, it unfolds right under the claim.
+        body = `<p class="basis basis-absence">rests on absence: you cannot quote a source not having something</p>`;
+        if (snapshots[s.id] !== undefined) {
+            body += `<details class="ev-scan"><summary>read the whole source and see for yourself</summary><div class="ev-scan-text">${esc(snapshots[s.id])}</div></details>`;
+        }
     } else {
         throw new Error(`${s.id}.${e.field}: unknown basis "${e.basis}".`);
     }
     return `<div class="evidence" data-evidence-field="${attr(e.field)}"${literal ? ' data-literal' : ''}><p class="ev-head"><code>${esc(e.field)}</code> = <b>${esc(String(e.claimValue))}</b>${literal ? '<span class="lit">value appears in the quote</span>' : ''}</p>${body}${e.note ? `<p class="note">${esc(e.note)}</p>` : ''}
-<div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"${literal ? ' data-literal' : ''}><span class="j">our reading</span><span class="q">${literal ? 'literal: the value is in the quote' : 'a fair reading of the evidence?'}</span>
+<div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"${literal ? ' data-literal' : ''}><span class="j">our reading</span><span class="q">${literal ? 'the value is right there in the quote' : 'a fair reading of the evidence?'}</span>
 <div class="review"><button class="rv" data-verdict="fair">fair</button><button class="rv" data-verdict="flag">flag</button><span class="rv-state"></span></div></div></div>`;
 }
 
@@ -196,31 +253,56 @@ a{color:var(--accent)}
 .rv-meter{flex:1 1 auto;min-width:6rem;height:5px;background:var(--tint)}
 .rv-fill{height:100%;width:0;background:var(--accent);transition:width .25s}
 .rv-actions{margin-left:auto;display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap}
-.rv-pill{font-family:inherit;font-size:.8rem;letter-spacing:.02em;background:none;border:1px solid var(--haze-line);border-radius:999px;padding:.35rem .85rem;color:var(--ink);cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease;-webkit-tap-highlight-color:transparent}
-.rv-pill:hover{border-color:var(--accent);color:var(--accent)}
-.rv-pill:active{background:var(--accent);border-color:var(--accent);color:var(--card)}
-.rv-pill:focus{outline:none}
-.rv-pill:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.rv-nav{display:flex;gap:.4rem}
-.rv-arrow{padding:.25rem .6rem;font-size:.9rem;line-height:1.4;color:var(--muted)}
+.rv-act{font-family:inherit;font-size:.8rem;letter-spacing:.02em;background:none;border:none;padding:0;color:var(--muted);cursor:pointer;transition:color .15s ease,translate .15s ease;-webkit-tap-highlight-color:transparent}
+.rv-act:hover:not(:disabled){color:var(--accent);translate:.12em 0}
+.rv-act:disabled{opacity:.55;cursor:default}
+.rv-act:focus{outline:none}
+.rv-act:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rv-view{display:flex;gap:.35rem}
+.rv-vw{font-family:inherit;font-size:.72rem;letter-spacing:.04em;padding:.25rem .7rem;border:1px solid var(--haze-line);border-radius:999px;background:none;color:var(--muted);cursor:pointer;transition:background .12s,color .12s,border-color .12s;-webkit-tap-highlight-color:transparent}
+.rv-vw:hover{border-color:var(--muted);color:var(--ink)}
+.rv-vw[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--card)}
+.rv-vw:focus{outline:none}
+.rv-vw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+body[data-view=full] .cols{grid-template-columns:1fr}
+body[data-view=full] .col+.col{display:none}
+body[data-view=full] .col:first-child{position:static;background:none;border:none;padding:0;font-size:1.0625rem}
+body[data-view=full] .col:first-child .lbl{display:none}
+body[data-view=full] .pair[data-closed] .cols,body[data-view=full] .pair[data-all-judged]:not([data-open]) .cols{display:grid}
+body[data-view=full] .pair{border-top:none;padding:.1rem 0}
+body[data-view=full] .pair>header{display:none}
+body[data-view=full] .cols{margin-top:0}
+.rv-nav{display:flex;gap:.7rem}
+.rv-arrow{font-size:.9rem;line-height:1.4}
 #rv-progress{font-family:Lato,sans-serif;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
-.rv-link{font-family:inherit;font-size:inherit;background:none;border:none;padding:0;color:var(--muted);cursor:pointer;text-decoration:underline;text-decoration-color:var(--haze-line);text-underline-offset:.3em;transition:color .2s ease,text-decoration-color .2s ease}
-.rv-link:hover{color:var(--accent);text-decoration-color:var(--accent)}
+.rv-link{font-family:inherit;font-size:inherit;background:none;border:none;padding:0;color:var(--muted);cursor:pointer;text-decoration:none;text-underline-offset:.3em;transition:color .2s ease;-webkit-tap-highlight-color:transparent}
+.rv-link:hover{color:var(--accent);text-decoration:underline;text-decoration-color:var(--accent)}
+.rv-btn{font-family:inherit;font-size:.78rem;letter-spacing:.03em;background:none;border:1px solid var(--muted);border-radius:999px;padding:.32rem .9rem;color:var(--ink);cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease;-webkit-tap-highlight-color:transparent}
+.rv-btn:hover{border-color:var(--accent);color:var(--accent)}
+.rv-btn:active{background:var(--accent);border-color:var(--accent);color:var(--card)}
+.rv-btn:focus{outline:none}
+.rv-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rv-btn.rv-primary{background:var(--accent);border-color:var(--accent);color:var(--card)}
+.rv-btn.rv-primary:hover{background:var(--ink);border-color:var(--ink);color:var(--card)}
 .rv-link:focus{outline:none}
 .rv-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .rv-filter{display:flex;gap:.45rem;align-items:center;cursor:pointer;transition:color .2s ease}
 .rv-filter:hover{color:var(--ink)}
 .rv-filter input{accent-color:var(--accent);width:.9em;height:.9em;margin:0}
 .pair{border-top:1px solid var(--haze-line);padding:1.6rem 0 1.2rem;scroll-margin-top:3.9rem}
-.reviewbar+.pair{border-top:none}
+.reviewbar+.pair,.statline+.pair{border-top:none}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:1rem;align-items:start}
 .col:first-child{position:sticky;top:9.2rem}
 @media (max-width:52rem){.cols{grid-template-columns:1fr}.col:first-child{position:static}.pair>header{position:static}}
 .col{background:var(--card);border:1px solid var(--haze-line);border-radius:4px;padding:1rem 1.2rem;font-size:1rem}
 .lbl{margin-bottom:.6rem;color:var(--muted)}
-.col p{margin:0 0 .8rem}.note{color:var(--muted);font-size:.9rem}.quote{font-style:italic;font-size:.95rem;margin:0 0 .35rem;padding-left:.85rem;border-left:2px solid var(--haze-line)}
+.col p{margin:0 0 .8rem}.note{color:var(--muted);font-size:.9rem}.quote{font-style:italic;font-size:.95rem;margin:0 0 .35rem;padding-left:.85rem;border-left:2px solid var(--haze-line)}.quote[data-tip]{cursor:help}
+.brand-mark{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:1.02rem;letter-spacing:0;color:var(--ink)}
 .evidence{padding:.7rem 0;border-top:1px dashed var(--haze-line)}
 .evidence:first-child{border-top:none;padding-top:0}
+.ev-scan{margin:.2rem 0 .5rem}
+.ev-scan summary{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.74rem;color:var(--accent);cursor:pointer}
+.ev-scan-text{white-space:pre-wrap;font-size:.88rem;color:var(--muted);border-left:2px solid var(--haze-line);padding-left:.85rem;margin:.4rem 0 0;max-height:16rem;overflow:auto}
 .ev-head{margin:0 0 .4rem}.ev-head code{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.82rem}
 .basis{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.74rem;margin:0 0 .3rem}
 .basis-derived{color:var(--muted)}
@@ -245,9 +327,6 @@ button.rv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pair[data-closed] .cols,.pair[data-all-judged]:not([data-open]) .cols{display:none}
 .pair[data-all-judged] .meta:after{content:" All readings judged.";color:var(--mark-ok)}
 .lit{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.7rem;color:var(--muted);margin-left:.6em}
-.evidence[data-literal]:not([data-judged]):not([data-expanded])>:not(.ev-head){display:none}
-.evidence[data-literal]:not([data-judged]):not([data-expanded]){cursor:pointer;padding:.45rem 0}
-.evidence[data-literal]:not([data-judged]):not([data-expanded]) .ev-head{margin:0}
 .evidence[data-judged]:not([data-expanded])>:not(.ev-head){display:none}
 .evidence[data-judged]:not([data-expanded]){cursor:pointer;padding:.45rem 0}
 .evidence[data-judged]:not([data-expanded]) .ev-head{margin:0;opacity:.85}
@@ -265,6 +344,9 @@ body[data-only-unjudged] .pair[data-all-judged]{display:none}
 .proveml-mismatch,.proveml-name-mismatch{color:var(--mark-bad);text-decoration:line-through;text-decoration-color:var(--mark-bad-lijn)}
 .proveml-unverifiable,.proveml-no-context,.proveml-entity:not(.proveml-verified){color:var(--mark-unk);border-bottom:1.5px dashed var(--mark-unk)}
 .proveml-entity,.proveml-fact{cursor:help}
+.col .proveml-fact[data-judge]{cursor:pointer}
+.col .proveml-fact[data-judge=open]{background:rgba(26,79,180,.12);border-radius:2px;box-shadow:0 0 0 2px rgba(26,79,180,.12)}
+.col .proveml-fact[data-judge=flag]{color:var(--mark-bad);text-decoration:line-through;text-decoration-color:var(--mark-bad-lijn)}
 .proveml-hilite{background:var(--mark-inf-vlak);border-radius:2px}
 #tip{position:fixed;z-index:9;max-width:26rem;background:var(--tip-vlak);color:var(--tip-ink);font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.74rem;line-height:1.5;padding:.5rem .65rem;border-radius:3px;pointer-events:none;box-shadow:0 8px 24px rgba(14,36,51,.25)}
 #tip b{color:#7de9f7;font-weight:500}
@@ -297,14 +379,35 @@ function paint() {
         card.toggleAttribute('data-all-judged', rs.length > 0 && rs.every(r => saved[r.dataset.review]));
         card.toggleAttribute('data-flagged', rs.some(r => (saved[r.dataset.review] || {}).verdict === 'flag'));
     }
+    // The text carries the review state too: a fact goes green when its
+    // readings are judged fair, red when one is flagged, amber while a human
+    // still has to look. In full view, clicking it goes to the reading.
+    for (const card of document.querySelectorAll('.pair')) {
+        const byField = {};
+        for (const r of card.querySelectorAll('.reading[data-review]')) {
+            const v = saved[r.dataset.review];
+            const st = v ? v.verdict : 'open';
+            const cur = byField[r.dataset.field];
+            byField[r.dataset.field] = cur === 'flag' || st === 'flag' ? 'flag' : (cur === 'open' || st === 'open' ? 'open' : st);
+        }
+        for (const fEl of card.querySelectorAll('.col .proveml-fact')) {
+            const field = (fEl.dataset.path || '').split('.').slice(1).join('.');
+            if (field && byField[field]) fEl.dataset.judge = byField[field];
+        }
+    }
     const needEye = readings.filter((r) => !r.hasAttribute('data-literal') && !saved[r.dataset.review]).length;
     const litOpen = readings.filter((r) => r.hasAttribute('data-literal') && !saved[r.dataset.review]).length;
     document.getElementById('rv-progress').textContent =
         judged + '/' + readings.length + ' judged' + (flagged ? ', ' + flagged + ' flagged' : '')
-        + (judged < readings.length ? ' \u00B7 ' + needEye + ' need you, ' + litOpen + ' literal' : '');
-    const lb = document.getElementById('rv-literal'); if (lb) lb.style.display = litOpen ? '' : 'none';
+        + (judged < readings.length ? ', ' + needEye + ' your call, ' + litOpen + ' plain to see' : '');
+    const lb = document.getElementById('rv-literal');
+    if (lb) {
+        lb.style.display = litOpen ? '' : 'none';
+        lb.textContent = litOpen === 1 ? 'mark the plain one fair' : 'mark the ' + litOpen + ' plain ones fair';
+    }
     document.querySelector('.rv-fill').style.width = (readings.length ? Math.round(judged / readings.length * 100) : 0) + '%';
     document.getElementById('rv-next').style.display = judged === readings.length ? 'none' : '';
+    document.getElementById('rv-sign')?.classList.toggle('rv-primary', judged === readings.length);
 }
 document.addEventListener('click', (e) => {
     const b = e.target.closest('button.rv[data-verdict]');
@@ -327,7 +430,7 @@ document.addEventListener('click', (e) => {
         persist(); paint();
     }
     if (!b) {
-        const ev = e.target.closest('.evidence[data-judged], .evidence[data-literal]:not([data-judged])');
+        const ev = e.target.closest('.evidence[data-judged]');
         if (ev && !e.target.closest('a')) {
             if (!ev.hasAttribute('data-expanded')) ev.setAttribute('data-expanded', '');
             else if (e.target.closest('.ev-head')) ev.removeAttribute('data-expanded');
@@ -338,6 +441,23 @@ document.addEventListener('click', (e) => {
             if (p.hasAttribute('data-all-judged')) p.toggleAttribute('data-open');
             else p.toggleAttribute('data-closed');
         }
+    }
+    const pf = e.target.closest('.col .proveml-fact[data-judge]');
+    if (pf && document.body.dataset.view === 'full') {
+        const field = (pf.dataset.path || '').split('.').slice(1).join('.');
+        const card = pf.closest('.pair');
+        document.body.dataset.view = 'sources';
+        document.querySelectorAll('.rv-vw').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === 'sources')));
+        card.removeAttribute('data-closed');
+        if (card.hasAttribute('data-all-judged')) card.setAttribute('data-open', '');
+        const ev = card.querySelector('.evidence[data-evidence-field="' + field + '"]');
+        if (ev) { ev.scrollIntoView({ block: 'center' }); ev.classList.add('paired'); setTimeout(() => ev.classList.remove('paired'), 1600); }
+        return;
+    }
+    const vw = e.target.closest('.rv-vw');
+    if (vw) {
+        document.body.dataset.view = vw.dataset.view;
+        document.querySelectorAll('.rv-vw').forEach((b) => b.setAttribute('aria-pressed', String(b === vw)));
     }
     if (e.target.id === 'rv-prev-src' || e.target.id === 'rv-next-src') {
         const ps = [...document.querySelectorAll('.pair')];
@@ -365,8 +485,9 @@ paint();
 // checklist with a clipboard. The button appears only when the flag exists.
 if (window.PROVEML_REVIEW_SUBMIT) {
     const btn = document.createElement('button');
-    btn.id = 'rv-sign'; btn.className = 'rv-pill'; btn.textContent = 'sign review';
+    btn.id = 'rv-sign'; btn.className = 'rv-btn rv-primary'; btn.textContent = 'sign review';
     document.querySelector('.rv-actions').prepend(btn);
+    paint();
     btn.addEventListener('click', async () => {
         // Browser-side signers hook in here: the event's detail.extra travels
         // with the POST, and a handler may return a promise via detail.wait.
@@ -382,9 +503,10 @@ if (window.PROVEML_REVIEW_SUBMIT) {
 document.querySelectorAll('[title]').forEach(el => { el.dataset.tip = el.getAttribute('title'); el.removeAttribute('title'); });
 const tip = document.createElement('div'); tip.id = 'tip'; tip.hidden = true; document.body.appendChild(tip);
 document.addEventListener('mouseover', (e) => {
-    const el = e.target.closest('.proveml-entity, .proveml-fact');
+    const el = e.target.closest('.proveml-entity, .proveml-fact, .quote[data-tip]');
     if (!el) return;
-    tip.innerHTML = (el.dataset.tip || '').replace(/^([^ =]+)/, '<b>$1</b>');
+    // Facts bold their own path; a quote arrives with its highlight baked in.
+    tip.innerHTML = el.classList.contains('quote') ? (el.dataset.tip || '') : (el.dataset.tip || '').replace(/^([^ =]+)/, '<b>$1</b>');
     tip.hidden = !el.dataset.tip;
 });
 document.addEventListener('mousemove', (e) => {
@@ -403,6 +525,6 @@ document.addEventListener('mouseover', (e) => {
 });
 document.addEventListener('mouseout', (e) => {
     if (e.target.closest?.('.col .proveml-fact')) document.querySelectorAll('.evidence.paired').forEach(x => x.classList.remove('paired'));
-    if (e.target.closest?.('.proveml-entity, .proveml-fact')) tip.hidden = true;
+    if (e.target.closest?.('.proveml-entity, .proveml-fact, .quote[data-tip]')) tip.hidden = true;
 });
 `;

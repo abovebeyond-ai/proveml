@@ -31,7 +31,7 @@ console.log('\n=== manifest: canonical segmentation is the contract ===');
 console.log('\n=== manifest: the tree ===');
 {
     const m = buildManifest(HTML, { source: 'https://example.org/ixbrl', capturedAt: '2026-09-01' });
-    assert('versioned contract travels with it', m.v === MANIFEST_VERSION && m.canonicalization === 'proveml-c14n-1' && m.segmentation === 'block-1');
+    assert('versioned contract travels with it', m.v === MANIFEST_VERSION && m.canonicalization === 'proveml-c14n-2' && m.segmentation === 'block-1');
     assert('deterministic root', m.root === buildManifest(HTML).root);
     assert('provenance is not hashed into the tree', buildManifest(HTML, { capturedAt: '2027-01-01' }).root === m.root);
     const tampered = HTML.replace('open standard', 'open standard!');

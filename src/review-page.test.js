@@ -1,4 +1,5 @@
 import { reviewPage, evidenceReviewId } from './review-page.js';
+import { buildManifest, verifyInclusion } from './manifest.js';
 import { summarize, emptyReview, judge } from './review.js';
 
 let passed = 0, failed = 0;
@@ -36,6 +37,8 @@ console.log('\n=== review-page: the gate ===');
     assert('page carries the readings', subjects[0].evidence.every((e) => r.html.includes(`data-review="${evidenceReviewId('ixbrl', e)}"`)));
     assert('quote survives whitespace differences', r.html.includes('iXBRL embeds extra tags'));
     assert('absence is named, not quoted', r.html.includes('rests on absence'));
+    assert('absence hands the reviewer the whole source', r.html.includes('see for yourself') && r.html.includes('What is iXBRL?'));
+    assert('no source, no scan offer', !reviewPage({ store, subjects: [{ ...subjects[0], evidence: [subjects[0].evidence[2]] }] }).html.includes('see for yourself'));
     assert('statline names the store', r.html.includes('store tools, 1 tools'));
 
     const script = /<script>([\s\S]*?)<\/script>/.exec(r.html)[1];
@@ -100,7 +103,7 @@ console.log('\n=== review-page: several quotes under one value ===');
 console.log('\n=== review-page: literal readings are triaged ===');
 {
     const r = reviewPage({ store, subjects, snapshots });
-    assert('a value that sits in its quote is marked literal', /data-evidence-field="category"[^>]*data-literal/.test(r.html) === false && r.html.includes('confirm literal readings'));
+    assert('a value that sits in its quote is marked literal', /data-evidence-field="category"[^>]*data-literal/.test(r.html) === false && r.html.includes('mark the plain ones fair'));
     const lit = [{ ...subjects[0], evidence: [{ field: 'category', claimValue: 'inline financial tagging standard', basis: 'quote', sourceQuote: 'iXBRL embeds extra tags into the HTML standard', sourceLocator: 'p3' },
         { field: 'inlineSupport', claimValue: 'yes', basis: 'derived' }] }];
     const store2 = { ...store, 'tool:ixbrl.category': 'inline financial tagging standard' };
@@ -120,5 +123,42 @@ console.log('\n=== review-page: committed review is baked in ===');
     assert('committed JSON cannot break out of its script tag', !r.html.includes('</script><script>alert'));
 }
 
+console.log('\n=== review-page: a manifested quote carries its proof ===');
+{
+    const man = buildManifest('What is iXBRL? iXBRL embeds extra tags into the HTML standard, and more.', { html: false });
+    const r = reviewPage({ store, subjects, manifests: { ixbrl: man } });
+    assert('locator names the block and root', r.html.includes('block 1 of 1, root ' + man.root.slice(0, 10)));
+    assert('the proof rides the return', r.proofs.length === 1 && r.proofs[0].subject === 'ixbrl' && r.proofs[0].field === 'category');
+    assert('a stranger can verify it', verifyInclusion(man.root, man.leaves[r.proofs[0].leafIndex].text, r.proofs[0].proof));
+    assert('a tampered root fails', !verifyInclusion(man.root.replace(/^./, man.root[0] === 'a' ? 'b' : 'a'), man.leaves[0].text, r.proofs[0].proof));
+    assert('manifest stands in for the snapshot', r.html.includes('title="What is iXBRL?'));
+    assert('a quote outside every leaf refuses to build', throws(() => reviewPage({
+        store, manifests: { ixbrl: man },
+        subjects: [{ ...subjects[0], evidence: [{ field: 'category', claimValue: 'x', basis: 'quote', sourceQuote: 'never said this' }] }],
+    }), /quote not found verbatim/));
+    const twoLeaf = buildManifest('iXBRL embeds extra tags\ninto the HTML standard', { html: false });
+    assert('a quote spanning two leaves refuses to build', throws(() => reviewPage({
+        store, manifests: { ixbrl: twoLeaf },
+        subjects: [{ ...subjects[0], evidence: [subjects[0].evidence[0]] }],
+    }), /single leaf/));
+}
+
+console.log('\n=== review-page: hover context and brand ===');
+{
+    const r = reviewPage({ store, subjects, snapshots });
+    assert('quote carries its neighbourhood', /title="What is iXBRL\? <b>iXBRL embeds extra tags into the HTML standard<\/b>, and more\."/.test(r.html));
+    assert('default lockup is proveml', r.html.includes('pml-name">proveml'));
+    assert('no unasked provenance line', !r.html.includes(' on proveml.'));
+    const b = reviewPage({ store, subjects, snapshots, brand: { mark: '(^_^)', name: 'vera' } });
+    assert('brand fronts the lockup', b.html.includes('brand-mark">(^_^)') && b.html.includes('pml-name">vera'));
+    assert('provenance moves to the statline', / on proveml\.<\/p>/.test(b.html));
+    assert('no middle-dot chains anywhere', !r.html.includes('\u00B7'));
+    assert('no pills on silent actions', !r.html.includes('rv-pill'));
+    assert('view switch ships', r.html.includes('data-view="full"') && r.html.includes('aria-pressed="true"'));
+    assert('literal evidence not collapsed unjudged', !r.html.includes('[data-literal]:not([data-judged]):not([data-expanded])'));
+    assert('no snapshot, no tip', !reviewPage({ store, subjects: [{ ...subjects[0], evidence: [subjects[0].evidence[0]] }] }).html.includes('title="What is'));
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
+
 process.exit(failed > 0 ? 1 : 0);
