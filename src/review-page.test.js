@@ -157,6 +157,15 @@ console.log('\n=== review-page: hover context and brand ===');
 }
 
 
+console.log('review-page: the lockup is neutral unless a brand is given');
+{
+    const plain = reviewPage({ store, subjects, snapshots }).html;
+    assert('default lockup names proveml, not a product', /<span class="pml-name">proveml<\/span>/.test(plain) && !/pml-name">vera</.test(plain));
+    const branded = reviewPage({ store, subjects, snapshots, brand: { name: 'vera', mark: '(^_^)' } }).html;
+    assert('a brand replaces the name and the mark', /<span class="brand-mark">\(\^_\^\)<\/span><span class="pml-name">vera<\/span>/.test(branded));
+}
+
+
 console.log('review-page: grades ride beside the reading and into the judgement');
 {
     const graded = [{ ...subjects[0], evidence: subjects[0].evidence.map((e, i) => (i === 0 ? { ...e, grade: 'inferred' } : e)) }];
@@ -167,12 +176,6 @@ console.log('review-page: grades ride beside the reading and into the judgement'
     assert('the page script records grade and satisfies on a yes', html.includes("satisfies: el.dataset.gradeOnYes"));
     const custom = reviewPage({ store, subjects: graded, snapshots, gradeOnYes: { inferred: 'clerk-signed' } }).html;
     assert('the upgrade map is the caller\'s', /data-grade-on-yes="clerk-signed"/.test(custom));
-console.log('review-page: the lockup is neutral unless a brand is given');
-{
-    const plain = reviewPage({ store, subjects, snapshots }).html;
-    assert('default lockup names proveml, not a product', /<span class="pml-name">proveml<\/span>/.test(plain) && !/pml-name">vera</.test(plain));
-    const branded = reviewPage({ store, subjects, snapshots, brand: { name: 'vera', mark: '(^_^)' } }).html;
-    assert('a brand replaces the name and the mark', /<span class="brand-mark">\(\^_\^\)<\/span><span class="pml-name">vera<\/span>/.test(branded));
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
