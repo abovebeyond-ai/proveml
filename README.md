@@ -2,6 +2,8 @@
 
 > **Prototype.** ProveML is in its prototyping phase, version 0.x. The markup, the verifier's API and the review page all still move between releases, and the canonicalisation contract has not been audited. Use it to try the idea and to tell us where it breaks; do not build on it yet as if it were stable.
 
+ProveML sits at one boundary: between an AI and the person who signs what it wrote. It makes the prose checkable, claim by claim, and makes that person's sign-off checkable by everyone else. It is not a control or a gate for agents. In front of a gate, a structured certificate checked by a predicate over the same data refuses the same actions; what ProveML adds there is the readable record, nothing more.
+
 An AI writes: *"Revenue was $416 billion and the margin is healthy."*
 
 Both halves can be wrong, and nothing in the sentence tells you which. ProveML
