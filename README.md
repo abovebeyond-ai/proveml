@@ -83,6 +83,8 @@ npx proveml prompt --facts facts.json --thresholds registry.json
 
 Vera is the collaborator built on this: a skill that co-writes a report against archived sources, and a review page that puts each reading beside its proof, marks the ones that need a person, takes a yes or a no, and folds the judgements into one signed review root. The page ships in this package (`src/review-page.js`), the skill as `vera`; `docs/deck.html` walks through the whole chain in fourteen slides.
 
+A hand-back can leave as a signed credential rather than a JSON file: `review --await --key reviewer.jwk --issuer did:web:you.example --credential review.jwt` signs the review root with the reviewer's Ed25519 key (`proveml reviewer-key` makes one) and writes a compact JWS a stranger can check with `verifyReviewCredential` and the public key alone. The root is recomputed from the payload before the signature is consulted, so a payload that does not fold to its own root fails first. No dependencies; node:crypto does the signing.
+
 Some links in a chain of evidence are not lookups: whether a stored value is a
 fair reading of a quote, whether a report may go out. `proveml/review` gives
 those human judgements the verifier's discipline: a judgement is saved under a
