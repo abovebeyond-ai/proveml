@@ -23,6 +23,7 @@ best contributions keep it that way.
 - Canonicalisation is versioned (`proveml-c14n-2`). A change to it is a new contract
   version, never an edit to an existing one.
 - Tests run with `npm test` and must stay green; add one for what you change.
+- The review page judges readings and nothing else: no verdicts, no tokens, no gateway view, no action ledger. Those belong to Proof-of-Control and to whatever consumes both. See issue #30.
 - Commit messages say why, not only what.
 
 ## Process

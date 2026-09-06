@@ -156,6 +156,15 @@ console.log('\n=== review-page: hover context and brand ===');
     assert('no snapshot, no tip', !reviewPage({ store, subjects: [{ ...subjects[0], evidence: [subjects[0].evidence[0]] }] }).html.includes('title="What is'));
 }
 
+
+console.log('review-page: the lockup is neutral unless a brand is given');
+{
+    const plain = reviewPage({ store, subjects, snapshots }).html;
+    assert('default lockup names proveml, not a product', /<span class="pml-name">proveml<\/span>/.test(plain) && !/pml-name">vera</.test(plain));
+    const branded = reviewPage({ store, subjects, snapshots, brand: { name: 'vera', mark: '(^_^)' } }).html;
+    assert('a brand replaces the name and the mark', /<span class="brand-mark">\(\^_\^\)<\/span><span class="pml-name">vera<\/span>/.test(branded));
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 
 console.log('\n=== review-page: a manifested quote carries its proof ===');

@@ -44,6 +44,9 @@ try {
         case 'skill':
             runSkill(argv);
             break;
+        case 'reviewer-key':
+            await runReviewerKey(argv);
+            break;
         case 'example':
         case 'examples':
             runExample(argv);
@@ -247,7 +250,18 @@ async function runReview(argv) {
 
     if (args.await) {
         const { awaitReview } = await import('./review-flow.js');
-        const signer = args.signer ? (await import(pathToFileURL(resolve(args.signer)).href)).default : undefined;
+        const custom = args.signer ? (await import(pathToFileURL(resolve(args.signer)).href)).default : undefined;
+        // --key turns the hand-back into a signed credential: the review root,
+        // signed by the reviewer's Ed25519 key, carried beside the judgements.
+        let signer = custom;
+        if (args.key) {
+            if (!args.issuer) throw new Error('review --key needs --issuer: who signs (a did:web, a mail address, a name a registry knows).');
+            const { credentialSigner } = await import('./review-credential.js');
+            const privateJwk = JSON.parse(readFileSync(args.key, 'utf8'));
+            const sources = Object.fromEntries(Object.entries(manifests).map(([id, m]) => [id, m.root]));
+            const withCredential = credentialSigner({ issuer: args.issuer, privateJwk, subjects, sources });
+            signer = custom ? async (r) => withCredential(await custom(r)) : withCredential;
+        }
         const { review, summary, url } = await awaitReview({
             ...opts, signer,
             ...(args['signed-by'] ? { signedBy: args['signed-by'] } : {}),
@@ -256,6 +270,7 @@ async function runReview(argv) {
         });
         const out = JSON.stringify(review, null, 1);
         if (args.out) { writeFileSync(args.out, `${out}\n`); stderr.write(`signed review written to ${args.out}\n`); }
+        if (args.credential && review.credential) { writeFileSync(args.credential, `${review.credential}\n`); stderr.write(`review credential written to ${args.credential}\n`); }
         else stdout.write(`${out}\n`);
         stderr.write(`${summary.judged}/${summary.total} judged, ${summary.flagged} flagged, ${summary.orphaned.length} orphaned\n`);
         exit(summary.flagged > 0 || summary.judged < summary.total ? 1 : 0);
@@ -281,6 +296,16 @@ async function runReview(argv) {
  * itself is installed inside the skill folder so nothing touches the user's
  * project.
  */
+async function runReviewerKey(argv) {
+    const args = parseArgs(argv);
+    const { generateReviewerKey } = await import('./review-credential.js');
+    const { privateJwk, publicJwk, kid } = generateReviewerKey();
+    const out = typeof args.out === 'string' ? args.out : 'reviewer.jwk';
+    writeFileSync(out, `${JSON.stringify(privateJwk, null, 1)}\n`, { mode: 0o600 });
+    writeFileSync(out.replace(/\.jwk$/, '') + '.public.jwk', `${JSON.stringify(publicJwk, null, 1)}\n`);
+    stderr.write(`reviewer key written to ${out} (keep it out of the repo); public key beside it; kid ${kid}\n`);
+}
+
 function runSkill(argv) {
     const args = parseArgs(argv);
     const action = args._[0] || 'install';
@@ -589,7 +614,8 @@ Usage:
   npx proveml manifest sources/raw/ixbrl.html --source https://example.org --out manifests/ixbrl.json
   npx proveml manifest sources/raw/ixbrl.html --source https://example.org --out manifests/ixbrl.json
   npx proveml review --facts facts.json --evidence subjects.json [--snapshots dir] [--committed review.json] [--output page.html] [--manifests dir] [--signatures sig.json] [--brand-name vera --brand-mark "(^_^)"]
-  npx proveml review --facts facts.json --evidence subjects.json --await [--out review.json] [--signer signer.mjs] [--signed-by name] [--no-open]
+  npx proveml review --facts facts.json --evidence subjects.json --await [--out review.json] [--signer signer.mjs] [--signed-by name] [--key reviewer.jwk --issuer did:web:you.example [--credential review.jwt]] [--no-open]
+  npx proveml reviewer-key [--out reviewer.jwk]
 
 Notes:
   - demo needs no setup: it shows a checked report end to end.
