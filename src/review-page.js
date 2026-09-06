@@ -76,7 +76,13 @@ export function evidenceReviewId(subjectId, e, leafHashes) {
  * @param {Array} opts.subjects  one card per subject:
  *   { id, title, meta?, claim, evidence: [{ field, claimValue,
  *     basis: 'quote'|'derived'|'absence', sourceQuote?, sourceLocator?,
- *     sourceHref?, note? }] }
+ *     sourceHref?, note?, grade? }] }
+ *   grade: the evidentiary grade the fact holds in the snapshot (inferred,
+ *   inferred:signed, attested, presented, ledger, or a policy's own words);
+ *   shown beside the reading so the reviewer sees what a yes upgrades.
+ * @param {Record<string,string>} [opts.gradeOnYes]  what a yes makes of a grade;
+ *   default { inferred: 'inferred:signed' }. A judgement records the grade it
+ *   was made at and, on a yes, the grade it now satisfies.
  * @param {string} [opts.name='review']  tool label in the lockup
  * @param {string} [opts.storeName='store']  shown in the statline
  * @param {string} [opts.subjectsWord='subjects']  noun for the statline count
@@ -114,6 +120,7 @@ export function reviewPage(opts) {
         leftLabel = 'the output', rightLabel = 'the evidence',
         snapshots: givenSnapshots = {}, committedReview = null, thresholds, brand = null,
         manifests = {}, signatures = {}, sourceTitles = {}, adapters = null, localSources = [], sourceGroups = null, anchors = {}, runs = {}, allowMismatch = false, brandCss = '', brandCssSource = null, signoffs = [],
+        gradeOnYes = { inferred: 'inferred:signed' },
     } = opts;
     for (const id of Object.keys(signatures)) {
         if (!manifests[id]) throw new Error(`signatures.${id}: an attestation without a manifest signs nothing.`);
@@ -147,7 +154,7 @@ export function reviewPage(opts) {
             s.mismatch = mm;
         }
         const left = renderProveml(s.claim, store).html;
-        const right = (s.evidence || []).map((e) => evidenceBlock(s, e, snapshots, ids, manifests[e.source || s.id], proofs, signatures[e.source || s.id])).join('');
+        const right = (s.evidence || []).map((e) => evidenceBlock(s, e, snapshots, ids, manifests[e.source || s.id], proofs, signatures[e.source || s.id], gradeOnYes)).join('');
         const meta = s.meta ? `${esc(s.meta)} ` : '';
         return `<section class="pair" id="${attr(s.id)}"${s.heading ? ' data-heading data-level="' + attr(s.level || 1) + '"' : ''}${s.pre ? ' data-pre' : ''}${s.scan ? ' data-scan="' + attr(s.scan) + '"' : ''}${s.capLead ? ' data-caption' : ''}${s.scan === 'clean' ? ' title="checked, nothing to confirm"' : ''}>
   <header><h2><span class="nr">${String(i + 1).padStart(2, '0')}</span>${esc(s.title)}</h2><p class="meta">${meta}${v.verified}/${v.total} claims verified, ${(s.evidence || []).length} fields of evidence.</p></header>
@@ -526,7 +533,7 @@ function attestProof(sig) {
     }
     return { signedBy: sig.issuer, ...(sig.method ? { signatureMethod: sig.method } : {}) };
 }
-function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature) {
+function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature, gradeOnYes = {}) {
     const sid = e.source || s.id;  // a paragraph may cite several sources
     const literal = isLiteral(e);
     let rid;
@@ -585,8 +592,8 @@ function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature) {
         throw new Error(`${s.id}.${e.field}: unknown basis "${e.basis}".`);
     }
     if (!rid) { rid = evidenceReviewId(s.id, e); ids.push(rid); }
-    return `<div class="evidence" data-evidence-field="${attr(e.field)}"${literal ? ' data-literal' : ''}><p class="ev-head"><code>${esc(e.field)}</code> = <b>${esc(String(e.claimValue))}</b>${literal ? '<span class="lit">value appears in the quote</span>' : ''}</p>${body}${e.note ? `<p class="note">${esc(e.note)}</p>` : ''}
-<div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"${literal ? ' data-literal' : ''}${s.mismatch && s.mismatch[e.field] ? ` data-mismatch="${attr(s.mismatch[e.field])}"` : ''}><span class="j">our reading</span><span class="q">${s.mismatch && s.mismatch[e.field] ? `<b class="mm">the verifier disagrees: the source says ${esc(s.mismatch[e.field])}</b>` : (literal ? 'the value is right there in the quote' : 'did it read this right?')}</span>
+    return `<div class="evidence" data-evidence-field="${attr(e.field)}"${literal ? ' data-literal' : ''}><p class="ev-head"><code>${esc(e.field)}</code> = <b>${esc(String(e.claimValue))}</b>${e.grade ? `<span class="mk-slot ev-grade" title="evidentiary grade of this fact in the snapshot">${esc(String(e.grade))}</span>` : ''}${literal ? '<span class="lit">value appears in the quote</span>' : ''}</p>${body}${e.note ? `<p class="note">${esc(e.note)}</p>` : ''}
+<div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"${literal ? ' data-literal' : ''}${e.grade ? ` data-grade="${attr(String(e.grade))}"${gradeOnYes && gradeOnYes[e.grade] ? ` data-grade-on-yes="${attr(gradeOnYes[e.grade])}"` : ''}` : ''}${s.mismatch && s.mismatch[e.field] ? ` data-mismatch="${attr(s.mismatch[e.field])}"` : ''}><span class="j">our reading</span><span class="q">${s.mismatch && s.mismatch[e.field] ? `<b class="mm">the verifier disagrees: the source says ${esc(s.mismatch[e.field])}</b>` : (literal ? 'the value is right there in the quote' : 'did it read this right?')}</span>
 <div class="review"><button class="rv" data-verdict="fair">yes</button><button class="rv" data-verdict="flag">no</button><span class="rv-state"></span></div></div></div>`;
 }
 
@@ -804,7 +811,7 @@ body[data-view=merkle][data-sub=in] .mk-rail{display:flex;grid-column:1;grid-row
 .ev-scan{margin:.2rem 0 .5rem}
 .ev-scan summary{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.74rem;color:var(--accent);cursor:pointer}
 .ev-scan-text{white-space:pre-wrap;font-size:.88rem;color:var(--muted);border-left:2px solid var(--haze-line);padding-left:.85rem;margin:.4rem 0 0;max-height:16rem;overflow:auto}
-.ev-head{margin:0 0 .4rem}.ev-head code{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.82rem}
+.ev-head{margin:0 0 .4rem}.ev-grade{margin-left:.6em;vertical-align:.15em}.ev-head code{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.82rem}
 .basis{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.74rem;margin:0 0 .3rem}
 .basis-derived{color:var(--muted)}
 .basis-absence{color:var(--mark-unk)}
@@ -1089,10 +1096,10 @@ document.addEventListener('click', (e) => {
             }
             const reason = g.querySelector('input').value.trim();
             if (!reason) { g.querySelector('input').focus(); return; }
-            local[id] = { verdict: 'fair', src: el.dataset.src, field: el.dataset.field, at: new Date().toISOString(), overrides: { verifier: 'mismatch', source: el.dataset.mismatch, reason } };
+            local[id] = { verdict: 'fair', src: el.dataset.src, field: el.dataset.field, at: new Date().toISOString(), ...(el.dataset.grade ? { grade: el.dataset.grade, ...(el.dataset.gradeOnYes ? { satisfies: el.dataset.gradeOnYes } : {}) } : {}), overrides: { verifier: 'mismatch', source: el.dataset.mismatch, reason } };
             g.remove();
         } else {
-            local[id] = { verdict: b.dataset.verdict, src: el.dataset.src, field: el.dataset.field, at: new Date().toISOString(), ...(el.dataset.span ? { inference: true, span: el.dataset.span, kind: el.dataset.kind || '', why: el.dataset.why || '' } : {}) };
+            local[id] = { verdict: b.dataset.verdict, src: el.dataset.src, field: el.dataset.field, at: new Date().toISOString(), ...(el.dataset.grade ? { grade: el.dataset.grade, ...(b.dataset.verdict === 'fair' && el.dataset.gradeOnYes ? { satisfies: el.dataset.gradeOnYes } : {}) } : {}), ...(el.dataset.span ? { inference: true, span: el.dataset.span, kind: el.dataset.kind || '', why: el.dataset.why || '' } : {}) };
         }
         persist(); paint(); b.blur();
         if (merged()[id]) el.closest('.evidence')?.removeAttribute('data-expanded');

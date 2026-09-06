@@ -156,6 +156,19 @@ console.log('\n=== review-page: hover context and brand ===');
     assert('no snapshot, no tip', !reviewPage({ store, subjects: [{ ...subjects[0], evidence: [subjects[0].evidence[0]] }] }).html.includes('title="What is'));
 }
 
+
+console.log('review-page: grades ride beside the reading and into the judgement');
+{
+    const graded = [{ ...subjects[0], evidence: subjects[0].evidence.map((e, i) => (i === 0 ? { ...e, grade: 'inferred' } : e)) }];
+    const html = reviewPage({ store, subjects: graded, snapshots }).html;
+    assert('the grade shows as a chip in the evidence head', /<span class="mk-slot ev-grade"[^>]*>inferred<\/span>/.test(html));
+    assert('the reading carries the grade and what a yes makes of it', /data-grade="inferred" data-grade-on-yes="inferred:signed"/.test(html));
+    assert('an ungraded reading carries nothing', !/data-field="inlineSupport"[^>]*data-grade=/.test(html));
+    assert('the page script records grade and satisfies on a yes', html.includes("satisfies: el.dataset.gradeOnYes"));
+    const custom = reviewPage({ store, subjects: graded, snapshots, gradeOnYes: { inferred: 'clerk-signed' } }).html;
+    assert('the upgrade map is the caller\'s', /data-grade-on-yes="clerk-signed"/.test(custom));
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 
 console.log('\n=== review-page: a manifested quote carries its proof ===');

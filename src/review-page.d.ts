@@ -15,6 +15,8 @@ export interface EvidenceEntry {
   /** Link to the archived source. */
   sourceHref?: string;
   note?: string;
+  /** the evidentiary grade the fact holds in the snapshot; shown beside the reading */
+  grade?: string;
 }
 
 export interface ReviewSubject {
