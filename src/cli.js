@@ -47,6 +47,9 @@ try {
         case 'reviewer-key':
             await runReviewerKey(argv);
             break;
+        case 'anchor-verify':
+            await runAnchorVerify(argv);
+            break;
         case 'example':
         case 'examples':
             runExample(argv);
@@ -262,6 +265,18 @@ async function runReview(argv) {
             const withCredential = credentialSigner({ issuer: args.issuer, privateJwk, subjects, sources });
             signer = custom ? async (r) => withCredential(await custom(r)) : withCredential;
         }
+        // --anchor pins the review root on Hedera Consensus Service, the one
+        // anchor path for a review with no gateway to ride in. Runs last, so
+        // the message can name the credential too.
+        if (args.anchor) {
+            const { anchorSigner } = await import('./anchor.js');
+            const operatorPath = typeof args.operator === 'string' ? args.operator : resolve(homedir(), '.config', 'proveml', 'hedera-operator.json');
+            const operator = JSON.parse(readFileSync(operatorPath, 'utf8'));
+            const sources = Object.fromEntries(Object.entries(manifests).map(([id, m]) => [id, m.root]));
+            const withAnchor = anchorSigner({ operator, subjects, sources });
+            const before = signer;
+            signer = before ? async (r) => withAnchor(await before(r)) : withAnchor;
+        }
         const { review, summary, url } = await awaitReview({
             ...opts, signer,
             ...(args['signed-by'] ? { signedBy: args['signed-by'] } : {}),
@@ -271,7 +286,8 @@ async function runReview(argv) {
         const out = JSON.stringify(review, null, 1);
         if (args.out) { writeFileSync(args.out, `${out}\n`); stderr.write(`signed review written to ${args.out}\n`); }
         if (args.credential && review.credential) { writeFileSync(args.credential, `${review.credential}\n`); stderr.write(`review credential written to ${args.credential}\n`); }
-        else stdout.write(`${out}\n`);
+        if (typeof args.anchor === 'string' && review.anchor) { writeFileSync(args.anchor, `${JSON.stringify(review.anchor, null, 1)}\n`); stderr.write(`anchor written to ${args.anchor}: topic ${review.anchor.topicId}, sequence ${review.anchor.sequenceNumber}, consensus time ${review.anchor.consensusTimestamp}\n`); }
+        if (!args.out && !(args.credential && review.credential)) stdout.write(`${out}\n`);
         stderr.write(`${summary.judged}/${summary.total} judged, ${summary.flagged} flagged, ${summary.orphaned.length} orphaned\n`);
         exit(summary.flagged > 0 || summary.judged < summary.total ? 1 : 0);
         return;
@@ -304,6 +320,22 @@ async function runReviewerKey(argv) {
     writeFileSync(out, `${JSON.stringify(privateJwk, null, 1)}\n`, { mode: 0o600 });
     writeFileSync(out.replace(/\.jwk$/, '') + '.public.jwk', `${JSON.stringify(publicJwk, null, 1)}\n`);
     stderr.write(`reviewer key written to ${out} (keep it out of the repo); public key beside it; kid ${kid}\n`);
+}
+
+/**
+ * Recheck an anchor record against the public mirror node: the record proves
+ * what was anchored, the mirror node proves when. Exits 0 only when both hold.
+ */
+async function runAnchorVerify(argv) {
+    const args = parseArgs(argv);
+    const file = args._[0] || args.input;
+    if (!file) throw new Error('Expected anchor-verify <anchor.json>.');
+    const { verifyAnchor } = await import('./anchor.js');
+    const record = JSON.parse(readFileSync(file, 'utf8'));
+    const result = await verifyAnchor(record);
+    if (args.json) stdout.write(`${JSON.stringify({ ok: result.ok, confirmed: result.confirmed, reason: result.reason, review: record.payload && record.payload.review }, null, 1)}\n`);
+    else stdout.write(`${result.ok ? 'confirmed' : 'NOT confirmed'}: ${result.reason}\nreview root ${record.payload && record.payload.review}\n`);
+    exit(result.ok ? 0 : 1);
 }
 
 function runSkill(argv) {
@@ -614,8 +646,9 @@ Usage:
   npx proveml manifest sources/raw/ixbrl.html --source https://example.org --out manifests/ixbrl.json
   npx proveml manifest sources/raw/ixbrl.html --source https://example.org --out manifests/ixbrl.json
   npx proveml review --facts facts.json --evidence subjects.json [--snapshots dir] [--committed review.json] [--output page.html] [--manifests dir] [--signatures sig.json] [--brand-name vera --brand-mark "(^_^)"]
-  npx proveml review --facts facts.json --evidence subjects.json --await [--out review.json] [--signer signer.mjs] [--signed-by name] [--key reviewer.jwk --issuer did:web:you.example [--credential review.jwt]] [--no-open]
+  npx proveml review --facts facts.json --evidence subjects.json --await [--out review.json] [--signer signer.mjs] [--signed-by name] [--key reviewer.jwk --issuer did:web:you.example [--credential review.jwt]] [--anchor anchor.json [--operator hedera-operator.json]] [--no-open]
   npx proveml reviewer-key [--out reviewer.jwk]
+  npx proveml anchor-verify anchor.json [--json]
 
 Notes:
   - demo needs no setup: it shows a checked report end to end.
@@ -630,5 +663,6 @@ Notes:
   - manifest builds the merkle manifest of one archived source: canonical leaves, one signable root; review --manifests binds every quote to a leaf and writes the inclusion proofs beside the page.
   - manifest builds the merkle manifest of one archived source: canonical leaves, one signable root; review --manifests binds every quote to a leaf and writes the inclusion proofs beside the page.
   - review emits the review page: every claim next to its evidence, with the judgement widget. With --await it serves the page, waits for "sign review", writes the signed review, and exits 0 only when all readings are judged and none flagged; --signer points at a module whose default export attests the review.
+  - --anchor pins the review root on Hedera Consensus Service (through the Hiero SDK, an optional install) and keeps what the mirror node returns; anchor-verify rechecks that record against the mirror node with nothing installed.
 `);
 }

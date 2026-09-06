@@ -73,6 +73,10 @@
     "./review-credential": {
       "types": "./src/review-credential.d.ts",
       "default": "./src/review-credential.js"
+    },
+    "./anchor": {
+      "types": "./src/anchor.d.ts",
+      "default": "./src/anchor.js"
     }
   },
   "files": [
@@ -81,6 +85,8 @@
     "llms.txt",
     "skills/vera/SKILL.md",
     "skills/vera/scripts/turn.mjs",
+    "src/anchor.d.ts",
+    "src/anchor.js",
     "src/annotate.d.ts",
     "src/annotate.js",
     "src/cli.js",
@@ -117,7 +123,7 @@
     "src/verify.js"
   ],
   "scripts": {
-    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js && node src/prompt.test.js && node src/review.test.js && node src/review-page.test.js && node src/review-flow.test.js && node src/review-credential.test.js && node src/manifest.test.js && node src/diff.test.js && node src/attacks.test.js",
+    "test": "node src/proveml.test.js && node src/grammar.test.js && node src/paper-examples.test.js && node src/cli.test.js && node src/detection.test.js && node src/prompt.test.js && node src/review.test.js && node src/review-page.test.js && node src/review-flow.test.js && node src/review-credential.test.js && node src/manifest.test.js && node src/diff.test.js && node src/attacks.test.js && node src/anchor.test.js",
     "test:plugin": "node src/proveml.test.js",
     "test:grammar": "node src/grammar.test.js",
     "test:cli": "node src/cli.test.js",
@@ -130,7 +136,8 @@
     "test:manifest": "node src/manifest.test.js",
     "test:diff": "node src/diff.test.js",
     "test:attacks": "node src/attacks.test.js",
-    "test:review-credential": "node src/review-credential.test.js"
+    "test:review-credential": "node src/review-credential.test.js",
+    "test:anchor": "node src/anchor.test.js"
   },
   "keywords": [
     "proveml",
@@ -152,12 +159,18 @@
   },
   "homepage": "https://abovebeyond.ai/proveml/",
   "peerDependencies": {
-    "markdown-it": ">=14.0.0"
+    "markdown-it": ">=14.0.0",
+    "@hiero-ledger/sdk": ">=2.80.0"
   },
   "devDependencies": {
     "markdown-it": "^14.1.1"
   },
   "engines": {
     "node": ">=20"
+  },
+  "peerDependenciesMeta": {
+    "@hiero-ledger/sdk": {
+      "optional": true
+    }
   }
 }

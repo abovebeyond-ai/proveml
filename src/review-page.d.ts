@@ -47,6 +47,8 @@ export interface ReviewPageOptions {
   committedReview?: { judgements: Record<string, unknown> } | null;
   /** Threshold registry passed to the verifier. */
   thresholds?: Record<string, unknown>;
+  /** Anchor records to show under the review root. `hedera` is the package's path (proveml/anchor, an AnchorRecord); other keys are demo adapters' records. */
+  anchors?: { hedera?: import('./anchor.js').AnchorRecord; [adapter: string]: unknown };
 }
 
 export interface ReviewPageResult {

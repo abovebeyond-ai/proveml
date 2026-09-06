@@ -442,4 +442,4 @@ report/store.json --css --output report/final.html`).
 Verify green, turn diff clean, review signed with zero flags, review.json
 saved next to the store. Done un-happens by itself when any evidence
 changes — that is the point. Offer, never assume: anchoring the signed
-review (ledger adapter) and passkey signing if they have one enrolled.
+review (`--anchor`, Hedera Consensus Service) and passkey signing if they have one enrolled.
