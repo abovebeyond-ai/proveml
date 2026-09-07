@@ -434,6 +434,16 @@ npm run test:examples
 npm run test:detection
 ```
 
+## Other implementations
+
+The verifier exists three times, on purpose: this package (the reference), the PHP gate
+inside Elixir (`Report\Gate`, the same law without the markup), and
+[proveml-go](https://github.com/abovebeyond-ai/proveml-go), a Go port tested against 81
+vectors recorded from this package's own test suites and against certificates from the
+field. A Proof-of-Control gateway in Go verifies a certificate of premises with it inside
+its own trusted boundary. When this package changes its judgement, the vectors are
+re-recorded and the port follows.
+
 ## Companion research repo
 
 The paper, reference-audit workflow, benchmarks, datasets, and experiment outputs have been split into a companion `proveml-research` repository so this package repo can stay small and focused.
