@@ -178,6 +178,31 @@ console.log('review-page: grades ride beside the reading and into the judgement'
     assert('the upgrade map is the caller\'s', /data-grade-on-yes="clerk-signed"/.test(custom));
 }
 
+// Visibility: a withheld source travels as ciphertext the reader's device opens; a sealed one as hashes.
+{
+    const { createDecipheriv } = await import('node:crypto');
+    const heldText = 'What is iXBRL?\niXBRL embeds extra tags into the HTML standard, and more.\nThat is the whole of it.';
+    const man = buildManifest(heldText, 'held');
+    const key = Buffer.alloc(32, 7); const keyB64 = key.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const dec = (aad, ct, nonce) => { const b = (x) => Buffer.from(x.replace(/-/g, '+').replace(/_/g, '/'), 'base64'); const buf = b(ct); const d = createDecipheriv('aes-256-gcm', key, b(nonce)); d.setAAD(Buffer.from(aad)); d.setAuthTag(buf.subarray(buf.length - 16)); return Buffer.concat([d.update(buf.subarray(0, buf.length - 16)), d.final()]).toString('utf8'); };
+    const subj = [{ ...subjects[0], id: 'held', evidence: [subjects[0].evidence[0]] }];
+    assert('withheld needs its key', throws(() => reviewPage({ store, subjects: subj, snapshots: { held: heldText }, manifests: { held: man }, visibility: { held: 'withheld' } }), /needs its content key/));
+    const r = reviewPage({ store, subjects: subj, snapshots: { held: heldText }, manifests: { held: man }, visibility: { held: 'withheld' }, contentKeys: { held: keyB64 } });
+    assert('withheld: the quote is not on the page in clear', !r.html.includes('iXBRL embeds extra tags into the HTML standard') && !r.html.includes('embeds   extra tags'));
+    const q = r.html.match(/<p class="quote rv-locked" data-source="held" data-root="([^"]+)" data-i="(\d+)" data-hash="([^"]+)" data-qct="([^"]+)" data-qnonce="([^"]+)">/);
+    assert('withheld: the quote travels encrypted with its block', !!q && q[1] === man.root);
+    assert('withheld: the device decrypts the quote', !!q && dec(`${q[1]}:q:${q[2]}`, q[4], q[5]) === 'iXBRL embeds extra tags into the HTML standard');
+    const snap = r.html.match(/<script type="application\/json" id="snap-held" data-enc="1">([\s\S]*?)<\/script>/);
+    assert('withheld: the archive travels as an encrypted manifest', !!snap && JSON.parse(snap[1]).leaves.every((l) => l.ct && l.nonce && !l.text));
+    assert('withheld: a leaf decrypts to the block', !!snap && dec(`${man.root}:1`, JSON.parse(snap[1]).leaves[1].ct, JSON.parse(snap[1]).leaves[1].nonce) === man.leaves[1].text);
+    assert('withheld: the merkle view carries no text', r.html.includes('class="rv-locked-text" data-source="held"') && !r.html.includes('What is iXBRL?'));
+    assert('withheld: the whole-source button waits for the key', r.html.includes('data-hl="" data-hl-locked'));
+    const sealed = reviewPage({ store, subjects: subj, snapshots: { held: heldText }, manifests: { held: man }, visibility: { held: 'sealed' } });
+    assert('sealed: only the hash travels', sealed.html.includes('class="quote rv-sealed"') && !sealed.html.includes('embeds extra') && !sealed.html.includes('id="snap-held"'));
+    assert('sealed: no whole-source button', !sealed.html.includes('class="rv-link rv-see"'));
+    assert('the verdict is unchanged by visibility', r.verified === reviewPage({ store, subjects: subj, snapshots: { held: heldText }, manifests: { held: man } }).verified);
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 
 console.log('\n=== review-page: a manifested quote carries its proof ===');
