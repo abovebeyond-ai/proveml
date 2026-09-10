@@ -278,3 +278,13 @@ process.exit(failed > 0 ? 1 : 0);
     assert('the mismatch does not count as verified', r.verified === 1 && r.total === 2);
     assert('a yes on it is guarded', r.html.includes('rv-guard'));
 }
+
+test('a reading may carry its own question and basis label', () => {
+    const { html } = reviewPage({
+        store: { 'p:1.name': 'this paragraph', 'p:1.v1': '999' },
+        subjects: [{ id: 'p1', title: '', claim: 'It says %[p:1.v1]{999} things.', evidence: [{ field: 'p:1.v1', claimValue: '999', basis: 'derived', note: 'nowhere', question: 'do you stand behind this as written?', basisLabel: 'not found in the files' }] }],
+    });
+    assert.ok(html.includes('do you stand behind this as written?'));
+    assert.ok(html.includes('not found in the files'));
+    assert.ok(!html.includes('did it read this right?'));
+});
