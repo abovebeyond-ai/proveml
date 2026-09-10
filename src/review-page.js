@@ -23,6 +23,7 @@ import { verifyProveml } from './verify.js';
 import { quoteEvidence, treeLevels, buildManifest } from './manifest.js';
 import { renderProveml, PROVEML_CSS } from './render-html.js';
 import { reviewId } from './review.js';
+import { createCipheriv, randomBytes } from 'node:crypto';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const attr = (s) => esc(s).replace(/"/g, '&quot;');
@@ -121,7 +122,23 @@ export function reviewPage(opts) {
         snapshots: givenSnapshots = {}, committedReview = null, thresholds, brand = null,
         manifests = {}, signatures = {}, sourceTitles = {}, adapters = null, localSources = [], sourceGroups = null, anchors = {}, runs = {}, allowMismatch = false, brandCss = '', brandCssSource = null, signoffs = [],
         gradeOnYes = { inferred: 'inferred:signed' },
+        // Per source: 'open' (text on the page and in the manifests), 'withheld' (ciphertext
+        // under a content key the page's holder wraps for each reader), 'sealed' (hashes only;
+        // the text never leaves its owner). A withheld source needs its content key here,
+        // base64url raw AES-256, so the page can carry the quotes and the leaves encrypted.
+        visibility = {}, contentKeys = {},
     } = opts;
+    const vis = (sid) => visibility[sid] || 'open';
+    for (const sid of Object.keys(visibility)) if (vis(sid) === 'withheld' && !contentKeys[sid]) throw new Error(`visibility.${sid}: withheld needs its content key.`);
+    const b64u = (b) => Buffer.from(b).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    // AES-256-GCM as WebCrypto does it (tag appended), with an associated-data string: the
+    // browser decrypts with the same key, nonce and string. Synchronous, so the build stays one call.
+    const gcm = (sid, aad, text) => {
+        const key = Buffer.from(String(contentKeys[sid]).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+        const nonce = randomBytes(12); const c = createCipheriv('aes-256-gcm', key, nonce); c.setAAD(Buffer.from(aad));
+        return { ct: b64u(Buffer.concat([c.update(text, 'utf8'), c.final(), c.getAuthTag()])), nonce: b64u(nonce) };
+    };
+    const priv = { vis, gcm };
     for (const id of Object.keys(signatures)) {
         if (!manifests[id]) throw new Error(`signatures.${id}: an attestation without a manifest signs nothing.`);
         if (!signatures[id].issuer) throw new Error(`signatures.${id}: an attestation needs an issuer.`);
@@ -130,7 +147,7 @@ export function reviewPage(opts) {
     // text, so the substring gate and the hover context work unchanged.
     const snapshots = { ...givenSnapshots };
     for (const sj of Array.isArray(opts.subjects) ? opts.subjects : []) {
-        if (manifests[sj.id] && snapshots[sj.id] === undefined) {
+        if (manifests[sj.id] && snapshots[sj.id] === undefined && vis(sj.id) === 'open') {
             snapshots[sj.id] = manifests[sj.id].leaves.map((l) => l.text).join('\n');
         }
     }
@@ -154,7 +171,7 @@ export function reviewPage(opts) {
             s.mismatch = mm;
         }
         const left = renderProveml(s.claim, store).html;
-        const right = (s.evidence || []).map((e) => evidenceBlock(s, e, snapshots, ids, manifests[e.source || s.id], proofs, signatures[e.source || s.id], gradeOnYes)).join('');
+        const right = (s.evidence || []).map((e) => evidenceBlock(s, e, snapshots, ids, manifests[e.source || s.id], proofs, signatures[e.source || s.id], gradeOnYes, priv)).join('');
         const meta = s.meta ? `${esc(s.meta)} ` : '';
         return `<section class="pair" id="${attr(s.id)}"${s.heading ? ' data-heading data-level="' + attr(s.level || 1) + '"' : ''}${s.pre ? ' data-pre' : ''}${s.scan ? ' data-scan="' + attr(s.scan) + '"' : ''}${s.capLead ? ' data-caption' : ''}${s.scan === 'clean' ? ' title="checked, nothing to confirm"' : ''}>
   <header><h2><span class="nr">${String(i + 1).padStart(2, '0')}</span>${esc(s.title)}</h2><p class="meta">${meta}${v.verified}/${v.total} claims verified, ${(s.evidence || []).length} fields of evidence.</p></header>
@@ -206,7 +223,7 @@ export function reviewPage(opts) {
         const rows = [...shown].sort((a, b) => a - b).map((i) => {
             const l = man.leaves[i]; const fields = used[i] || [];
             const pr = proofs.find((p) => p.root === man.root && p.leafIndex === i);
-            return `<div class="mk-leaf${fields.length ? ' mk-quoted' : ' mk-nb'}" data-leaf="${i}" data-fields="${attr(fields.join(', '))}"><span class="mk-nr">${String(i + 1).padStart(2, '0')}</span><code class="mk-hash">${esc(l.hash.slice(0, 12))}…</code><span class="mk-text">${esc(l.text.length > 110 ? l.text.slice(0, 110) + '…' : l.text)}<span class="mk-used">${fields.length ? 'carries ' + esc(fields.join(', ')) : 'beside it, part of the key'}</span></span></div>${pr ? recipe(pr) : ''}`;
+            return `<div class="mk-leaf${fields.length ? ' mk-quoted' : ' mk-nb'}" data-leaf="${i}" data-fields="${attr(fields.join(', '))}"><span class="mk-nr">${String(i + 1).padStart(2, '0')}</span><code class="mk-hash">${esc(l.hash.slice(0, 12))}…</code><span class="mk-text">${vis(id) === 'open' ? esc(l.text.length > 110 ? l.text.slice(0, 110) + '…' : l.text) : vis(id) === 'withheld' ? `<i class="rv-locked-text" data-source="${attr(id)}" data-i="${i}">locked</i>` : '<i class="rv-locked-text">sealed</i>'}<span class="mk-used">${fields.length ? 'carries ' + esc(fields.join(', ')) : 'beside it, part of the key'}</span></span></div>${pr ? recipe(pr) : ''}`;
         }).join('');
         const n = man.leaves.length; const rest = n - shown.size;
         const run = runs[id];
@@ -377,7 +394,13 @@ body[data-view=sources] .rv-panel,body[data-view=merkle] .rv-panel{display:none}
 body[data-view=sources] .wrap,body[data-view=merkle] .wrap{right:0}
 @media (max-width:74rem){.wrap{right:0;bottom:46vh}body[data-view=sources] .wrap,body[data-view=merkle] .wrap{bottom:0}.rv-panel{top:auto;height:46vh;width:auto;left:0;border-left:none;border-top:1px solid var(--haze-line);box-shadow:0 -10px 30px rgba(14,36,51,.12)}.rv-panel[hidden]{display:none}}
 `;
-    const snapStore = Object.entries(snapshots).map(([id, txt]) => `<script type="text/plain" id="snap-${attr(id)}">${String(txt).replace(/<\/script/gi, '<\\/script')}</script>`).join('');
+    // The archived text for the modal: in clear for an open source; for a withheld one the
+    // encrypted manifest, which the reader's device turns back into text; nothing for a sealed one.
+    const snapStore = Object.keys(manifests).filter((id) => vis(id) !== 'open').map((id) => {
+        if (vis(id) !== 'withheld') return '';
+        const man = manifests[id]; const leaves = man.leaves.map((l) => ({ i: l.i, hash: l.hash, ...gcm(id, `${man.root}:${l.i}`, l.text) }));
+        return `<script type="application/json" id="snap-${attr(id)}" data-enc="1">${JSON.stringify({ v: 2, root: man.root, enc: { alg: 'A256GCM' }, leaves }).replace(/<\/script/gi, '<\\/script')}</script>`;
+    }).join('') + Object.entries(snapshots).filter(([id]) => vis(id) === 'open').map(([id, txt]) => `<script type="text/plain" id="snap-${attr(id)}">${String(txt).replace(/<\/script/gi, '<\\/script')}</script>`).join('');
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProveML ${esc(name)}</title><style>${PROVEML_CSS}${CSS}${CHROME}
 /* house layer, read from its source at build time */
 ${brandCss}</style></head><body class="proveml-root" data-view="full" data-sub="in">
@@ -535,8 +558,19 @@ function attestProof(sig) {
     }
     return { signedBy: sig.issuer, ...(sig.method ? { signatureMethod: sig.method } : {}) };
 }
-function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature, gradeOnYes = {}) {
+function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature, gradeOnYes = {}, priv = null) {
     const sid = e.source || s.id;  // a paragraph may cite several sources
+    const vis = priv ? priv.vis(sid) : 'open';
+    const shown = vis === 'open' && snapshots[sid] !== undefined;   // the text may be handed to the reader here
+    // A quote from a withheld source travels encrypted under the source's content key, bound to its block;
+    // the reader's device decrypts it and checks the block against the record. A sealed one travels as its hash.
+    const quoteHtml = (q, b, ctx) => {
+        if (vis === 'open' || !b) return `<p class="quote"${ctx ? ` title="${ctx}"` : ''}>\u201C${esc(q.sourceQuote)}\u201D</p>`;
+        if (vis === 'sealed') return `<p class="quote rv-sealed" data-source="${attr(sid)}" data-root="${attr(b.root)}" data-i="${b.leafIndex}" data-hash="${attr(b.leafHash)}">sealed: the text stays with its owner; block ${b.leafIndex + 1} hashes to ${esc(String(b.leafHash).slice(0, 12))}\u2026</p>`;
+        const { ct, nonce } = priv.gcm(sid, `${b.root}:q:${b.leafIndex}`, q.sourceQuote);
+        return `<p class="quote rv-locked" data-source="${attr(sid)}" data-root="${attr(b.root)}" data-i="${b.leafIndex}" data-hash="${attr(b.leafHash)}" data-qct="${ct}" data-qnonce="${nonce}">locked: decrypts on your device</p>`;
+    };
+    const seeBtn = (hl, hl2, label) => shown ? `<p class="loc"><button class="rv-link rv-see" data-source="${attr(sid)}" data-hl="${attr(hl)}"${hl2 !== undefined ? ` data-hl2="${attr(hl2)}"` : ''}>${label}</button></p>` : (vis === 'withheld' ? `<p class="loc"><button class="rv-link rv-see" data-source="${attr(sid)}" data-hl="" data-hl-locked>${label}</button></p>` : '');
     const literal = isLiteral(e);
     let rid;
     let bundles = null;
@@ -566,22 +600,22 @@ function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature, gradeO
             const loc = q.sourceLocator ? `<b>${esc(String(q.sourceLocator).replace(/_/g, ' '))}</b>` : '';
             const link = e.sourceHref ? `${loc ? ', ' : ''}verbatim in the <a href="${attr(e.sourceHref)}">archived source</a>` : '';
             const pn = proofNoteFor(s, e, manifest, bundles && bundles[0], proofs, loc || link, signature) || { line: '', reveal: '' };
-            const ctx = quoteContext(snapshots[sid], q.sourceQuote);
-            const see = snapshots[sid] !== undefined ? `<p class="loc"><button class="rv-link rv-see" data-source="${attr(sid)}" data-hl="${attr(q.sourceQuote)}">see the whole source</button></p>` : '';
-            body = `<p class="quote"${ctx ? ` title="${ctx}"` : ''}>\u201C${esc(q.sourceQuote)}\u201D</p>${loc || link || pn.line ? `<p class="loc">${loc}${link}${pn.line}</p>` : ''}${pn.reveal}${see}`;
+            const ctx = shown ? quoteContext(snapshots[sid], q.sourceQuote) : '';
+            const see = seeBtn(q.sourceQuote, undefined, 'see the whole source');
+            body = `${quoteHtml(q, bundles && bundles[0], ctx)}${loc || link || pn.line ? `<p class="loc">${loc}${link}${pn.line}</p>` : ''}${pn.reveal}${see}`;
         } else {
             body = quotes.map((q, qi) => {
                 const pn = proofNoteFor(s, e, manifest, bundles && bundles[qi], proofs, q.sourceLocator, signature) || { line: '', reveal: '' };
                 const loc = q.sourceLocator || pn.line ? `<p class="loc">${esc(String(q.sourceLocator || '').replace(/_/g, ' '))}${pn.line}</p>` : '';
-                const ctx = quoteContext(snapshots[sid], q.sourceQuote);
-                return `<p class="quote"${ctx ? ` title="${ctx}"` : ''}>\u201C${esc(q.sourceQuote)}\u201D</p>${loc}${pn.reveal}`;
+                const ctx = shown ? quoteContext(snapshots[sid], q.sourceQuote) : '';
+                return `${quoteHtml(q, bundles && bundles[qi], ctx)}${loc}${pn.reveal}`;
             }).join('');
             body += `<p class="loc">each verbatim in the${e.sourceHref ? ` <a href="${attr(e.sourceHref)}">archived source</a>` : ' archived source'}</p>`;
         }
     } else if (e.basis === 'derived') {
         rid = evidenceReviewId(s.id, e);
         ids.push(rid);
-        body = `<p class="basis basis-derived">derived, not quoted</p>${e.source && snapshots[sid] !== undefined ? `<p class="loc"><button class="rv-link rv-see" data-source="${attr(sid)}" data-hl="${attr(String(e.claimValue))}" data-hl2="${attr(String(e.note || ''))}">see the source it was derived from</button></p>` : ''}`;
+        body = `<p class="basis basis-derived">derived, not quoted</p>${e.source ? seeBtn(String(e.claimValue), String(e.note || ''), 'see the source it was derived from') : ''}`;
     } else if (e.basis === 'absence') {
         rid = evidenceReviewId(s.id, e);
         ids.push(rid);
@@ -589,7 +623,7 @@ function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature, gradeO
         // evidence is the whole source, handed to the reviewer to scan. So
         // when the archive is here, it unfolds right under the claim.
         body = `<p class="basis basis-absence">rests on absence: you cannot quote a source not having something</p>`;
-        if (snapshots[sid] !== undefined) body += `<p class="loc"><button class="rv-link rv-see" data-source="${attr(sid)}" data-hl="">scan the whole source</button></p>`;
+        body += seeBtn('', undefined, 'scan the whole source');
     } else {
         throw new Error(`${s.id}.${e.field}: unknown basis "${e.basis}".`);
     }
