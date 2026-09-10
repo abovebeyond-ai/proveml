@@ -77,7 +77,10 @@ export function evidenceReviewId(subjectId, e, leafHashes) {
  * @param {Array} opts.subjects  one card per subject:
  *   { id, title, meta?, claim, evidence: [{ field, claimValue,
  *     basis: 'quote'|'derived'|'absence', sourceQuote?, sourceLocator?,
- *     sourceHref?, note?, grade? }] }
+ *     sourceHref?, note?, grade?, question?, basisLabel? }] }
+ *   question: the words under "our reading" (default "did it read this right?");
+ *   basisLabel: the words on a derived reading's basis line (default "derived,
+ *   not quoted"). A builder that found nothing to read asks a different question.
  *   grade: the evidentiary grade the fact holds in the snapshot (inferred,
  *   inferred:signed, attested, presented, ledger, or a policy's own words);
  *   shown beside the reading so the reviewer sees what a yes upgrades.
@@ -647,7 +650,7 @@ function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature, gradeO
     } else if (e.basis === 'derived') {
         rid = evidenceReviewId(s.id, e);
         ids.push(rid);
-        body = `<p class="basis basis-derived">derived, not quoted</p>${e.source ? seeBtn(String(e.claimValue), String(e.note || ''), 'see the source it was derived from') : ''}`;
+        body = `<p class="basis basis-derived">${esc(e.basisLabel || 'derived, not quoted')}</p>${e.source ? seeBtn(String(e.claimValue), String(e.note || ''), 'see the source it was derived from') : ''}`;
     } else if (e.basis === 'absence') {
         rid = evidenceReviewId(s.id, e);
         ids.push(rid);
@@ -661,7 +664,7 @@ function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature, gradeO
     }
     if (!rid) { rid = evidenceReviewId(s.id, e); ids.push(rid); }
     return `<div class="evidence" data-evidence-field="${attr(e.field)}"${literal ? ' data-literal' : ''}><p class="ev-head"><code>${esc(e.field)}</code> = <b>${esc(String(e.claimValue))}</b>${e.grade ? `<span class="mk-slot ev-grade" title="evidentiary grade of this fact in the snapshot">${esc(String(e.grade))}</span>` : ''}${literal ? '<span class="lit">value appears in the quote</span>' : ''}</p>${body}${e.note ? `<p class="note">${esc(e.note)}</p>` : ''}
-<div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"${literal ? ' data-literal' : ''}${e.grade ? ` data-grade="${attr(String(e.grade))}"${gradeOnYes && gradeOnYes[e.grade] ? ` data-grade-on-yes="${attr(gradeOnYes[e.grade])}"` : ''}` : ''}${s.mismatch && s.mismatch[e.field] ? ` data-mismatch="${attr(s.mismatch[e.field])}"` : ''}><span class="j">our reading</span><span class="q">${s.mismatch && s.mismatch[e.field] ? `<b class="mm">the verifier disagrees: the source says ${esc(s.mismatch[e.field])}</b>` : (literal ? 'the value is right there in the quote' : 'did it read this right?')}</span>
+<div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"${literal ? ' data-literal' : ''}${e.grade ? ` data-grade="${attr(String(e.grade))}"${gradeOnYes && gradeOnYes[e.grade] ? ` data-grade-on-yes="${attr(gradeOnYes[e.grade])}"` : ''}` : ''}${s.mismatch && s.mismatch[e.field] ? ` data-mismatch="${attr(s.mismatch[e.field])}"` : ''}><span class="j">our reading</span><span class="q">${s.mismatch && s.mismatch[e.field] ? `<b class="mm">the verifier disagrees: the source says ${esc(s.mismatch[e.field])}</b>` : (literal ? 'the value is right there in the quote' : esc(e.question || 'did it read this right?'))}</span>
 <div class="review"><button class="rv" data-verdict="fair">yes</button><button class="rv" data-verdict="flag">no</button><span class="rv-state"></span></div></div></div>`;
 }
 
