@@ -990,6 +990,10 @@ async function drawOutgoing() {
     const legend = document.querySelector('.mk-out-legend');
     const anchoredRoots = (host.dataset.anchoredRoot || '').split(' ').filter(Boolean);
     const liveRoot = levels[levels.length - 1][0];
+    // The root a person approves is this one: exposed for whoever signs it (Vera's approve bridge).
+    document.body.dataset.reviewRoot = liveRoot;
+    document.body.dataset.reviewOpen = String(open);
+    document.dispatchEvent(new CustomEvent('proveml:root', { detail: { root: liveRoot, open, leaves: lines.length, outputRoot: host.dataset.outputRoot } }));
     const signedRoots = (host.dataset.signedRoot || '').split(' ').filter(Boolean);
     const signNote = signedRoots.length ? (signedRoots.indexOf(liveRoot) >= 0 ? ' <span class="sig">this root is signed</span>' : ' <span class="mk-drift">not yet signed: judgements since the last sign-off are not under a signature</span>') : '';
     const anchorNote = signNote + (anchoredRoots.length ? (anchoredRoots.indexOf(liveRoot) >= 0 ? ' <span class="sig">and anchored</span>' : ' <span class="mk-drift">differs from the anchored roots: judgements since hand-back are not on any log yet</span>') : '');
