@@ -127,6 +127,8 @@ export function reviewPage(opts) {
         // the text never leaves its owner). A withheld source needs its content key here,
         // base64url raw AES-256, so the page can carry the quotes and the leaves encrypted.
         visibility = {}, contentKeys = {},
+        // Who must approve and who has: {policy: {mustApprove: [emails]}, approvals: [{by, root, at, judgements}]}
+        approvals = null,
     } = opts;
     const vis = (sid) => visibility[sid] || 'open';
     for (const sid of Object.keys(visibility)) if (vis(sid) === 'withheld' && !contentKeys[sid]) throw new Error(`visibility.${sid}: withheld needs its content key.`);
@@ -187,7 +189,7 @@ export function reviewPage(opts) {
     // not by subject: a paragraph may cite several sources and a source
     // serves many paragraphs.
     const manIds = Object.keys(manifests);
-    const merkleTab = manIds.length ? '<button class="rv-vw" data-view="merkle" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v3.5M8 6l-4 4M8 6l4 4M4 10v3.5M12 10v3.5"/></svg>provenance</button>' : '';
+    const merkleTab = manIds.length ? '<button class="rv-vw" data-view="merkle" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v3.5M8 6l-4 4M8 6l4 4M4 10v3.5M12 10v3.5"/></svg>who stands behind this</button>' : '';
     // Attestation is a set, not a level: a source can be fetched over TLS,
     // held by an archive, timestamped and signed all at once, and each mark
     // is present or absent on its own. Fixed order, so eyes can compare
@@ -269,7 +271,7 @@ export function reviewPage(opts) {
     const provView = manIds.length
         ? '<div class="merkle mk-intro" data-sub="in">' + legend + '</div>\n' + rungBlocks
         : '';
-    const subTabs = manIds.length ? '<nav class="merkle mk-tabs" aria-label="provenance"><button class="mk-tab" data-sub="in" aria-pressed="true"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M5 7.5l3 3 3-3M3 13.5h10"/></svg>incoming</button><button class="mk-tab" data-sub="out" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10.5v-8M5 5.5l3-3 3 3M3 13.5h10"/></svg>outgoing</button></nav>\n' : '';
+    const subTabs = manIds.length ? '<nav class="merkle mk-tabs" aria-label="who stands behind this"><button class="mk-tab" data-sub="behind" aria-pressed="true"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5l5.5 2v4c0 3.5-2.4 6-5.5 7-3.1-1-5.5-3.5-5.5-7v-4z M5.5 8l1.8 1.8L10.5 6.5"/></svg>the answer</button><button class="mk-tab" data-sub="in" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M5 7.5l3 3 3-3M3 13.5h10"/></svg>the sources, in detail</button><button class="mk-tab" data-sub="out" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10.5v-8M5 5.5l3-3 3 3M3 13.5h10"/></svg>the approvals, in detail</button></nav>\n' : '';
     const merkleView = provView.replace('</div>\n', '</div>\n' + adapterList(adapters && adapters.in, 'in') + '\n');
 
     // The other direction of the same fold: the review is a document too.
@@ -299,7 +301,37 @@ export function reviewPage(opts) {
         const anchorLine = (signLines.join('') + (lines.length ? lines.join('') + '<p class="loc">These are the roots at hand-back; what you judge after them is not in any log until the next anchor.</p>' : '<p class="loc mk-anchor">not anchored yet: the review root becomes findable on a ledger at hand-back, when the review is anchored (review --anchor).</p>'));
         const signedRoots = signoffs.map((so) => so.root);
         const anchoredRoots = [h && h.payload.review, rk && rk.payload.review, va && va.payload.review].filter(Boolean);
-        reviewMerkle = `<div class="merkle mk-intro" data-sub="out"><p>Every approval is a leaf beside the output itself: literal ones by the machine, inferred ones by you. They fold to one root, which is what the hand-back carries and what a signature or an anchor covers.</p></div>\n<section class="merkle" data-sub="out" data-kind="review"><h2>Approvals, going out</h2><p class="loc">output root <code class="mk-root">${esc(oman.root)}</code></p><div id="mk-out" data-output-root="${attr(oman.root)}"${anchoredRoots.length ? ` data-anchored-root="${attr(anchoredRoots.join(' '))}"` : ''}${signedRoots.length ? ` data-signed-root="${attr(signedRoots.join(' '))}"` : ''}></div><p class="mk-what loc"></p><p class="loc mk-out-legend"></p>${anchorLine}</section>`;
+        // The answer, in the reader's order: is it backed, who has approved, can a stranger check it.
+        const rungWords = (id) => {
+            const sig = signatures[id]; const run = runs[id]; const w = ['copy'];
+            if (run && run.sameAsSnapshot && run.exitCode === 0) w.push('reproduced');
+            if (sig && sig.transport) w.push('checked live');
+            if (sig && sig.witness) w.push('archived');
+            if (sig && sig.timestamp) w.push('timestamped');
+            if (sig && sig.level === 'granted') w.push('under a grant');
+            if (sig && (!sig.level || sig.level === 'signed') && sig.issuer && sig.signature) w.push('signed');
+            return w;
+        };
+        const weakNote = (id) => {
+            const sig = signatures[id]; const run = runs[id];
+            if (run && !(run.sameAsSnapshot && run.exitCode === 0)) return 'rerun on ' + String(run.startedAt || '').slice(0, 10) + ' gave different bytes; the page says which readings rest on it';
+            if (sig && sig.transport && !sig.witness && !(sig.level === 'granted')) return 'no independent copy: the archive did not take this page';
+            if (!sig && !run && localSources.includes(id)) return 'regenerated by hand; no script run has reproduced it';
+            return '';
+        };
+        const rows = manIds.map((id) => ({ id, words: rungWords(id), note: weakNote(id), n: usedCount(id), group: (groups.find((g) => g.ids.includes(id)) || {}).title || '' }));
+        const weak = rows.filter((r) => r.note); const strong = rows.filter((r) => !r.note);
+        const rowHtml = (r) => `<span class="n">${esc(sourceTitles[r.id] || r.id)}${r.group ? `<small> ${esc(r.group)}</small>` : ''}</span><span class="m">${esc(r.words.join(', '))}</span><span class="c">${r.n} ${r.n === 1 ? 'reading rests on it' : 'readings rest on it'}</span>${r.note ? `<span class="let">${esc(r.note)}</span>` : ''}`;
+        const backed = `<h2>Is it backed?</h2><p class="bh-answer">Every claim rests on one of <b>${manIds.length}</b> sources. Vera holds a copy of each; the words in green say what else vouches for it.${weak.length ? ` <b data-k="let">${weak.length} to look at</b>, first.` : ' Nothing to look at.'}</p><div class="bh-register"><span class="kop">source</span><span class="kop m">vouched for by</span><span class="kop"></span>${weak.map(rowHtml).join('')}${groups.map((g) => { const ids = rows.filter((r) => strong.includes(r) && g.ids.includes(r.id)); if (!ids.length) return ''; return `<span class="groep">${esc(g.title)}<small>${ids.length}</small></span>` + ids.sort((a, b) => b.n - a.n).map(rowHtml).join(''); }).join('')}</div><p class="bh-note">Copy: Vera holds the text. Checked live: fetched again over TLS, the same. Archived: an independent copy exists. Timestamped: an authority vouches for when. Reproduced: the script gave the same bytes. Under a grant: read from its owner on their terms.</p>`;
+        const pol = (approvals && approvals.policy && approvals.policy.mustApprove) || []; const apr = (approvals && approvals.approvals) || [];
+        const runRows = Object.entries(runs).filter(([, r]) => r).map(([id, r]) => `<span class="n"><span class="bh-sq" data-k="${r.sameAsSnapshot && r.exitCode === 0 ? 'ok' : ''}"></span>${esc(sourceTitles[id] || id)}</span><span class="m" data-k="stil">${r.sameAsSnapshot && r.exitCode === 0 ? 'reproduced' : 'differs on rerun'} by the runner at ${esc(String((r.repo && r.repo.commit) || '').slice(0, 7))}</span><span class="c">attested ${esc(String(r.startedAt || '').slice(0, 10))}</span>`).join('');
+        const personRows = pol.map((e) => `<span class="n bh-person" data-email="${attr(e)}"><span class="bh-sq"></span>${esc(e)}</span><span class="m bh-state" data-k="stil">not yet</span><span class="c bh-when"></span>`).join('');
+        const who = `<h2>Who has approved</h2><p class="bh-answer bh-policy">${pol.length ? `<b>${esc(pol.join(' and '))}</b> must ${pol.length > 1 ? 'all ' : ''}approve${Object.keys(runs).length ? ', after the paper’s own data has been reproduced' : ''}.` : 'No approval policy is declared on this review.'}</p><div class="bh-register" id="bh-approvals" data-approvals="${attr(JSON.stringify(apr.map((a) => ({ by: a.by, root: a.root, at: a.at }))))}">${runRows}${personRows}</div><p class="bh-note">An approval is a signature with the person’s passkey over exactly this version of the review. When everyone named has approved the same version, the policy is met.</p>`;
+        const ledgerNames = [h ? 'Hedera' : '', rk ? 'Sigstore Rekor' : '', va ? 'Vana' : ''].filter(Boolean);
+        const check = `<h2>Can a stranger check it?</h2><p class="bh-answer">${signoffs.length ? `The last hand-back is <b data-k="ok">signed by Vera</b> for ${esc(signoffs[signoffs.length - 1].issuer)}` : 'The last hand-back is <b data-k="let">not signed yet</b>'}${ledgerNames.length ? ` and <b data-k="ok">written to ${ledgerNames.length === 1 ? 'a public ledger' : ledgerNames.length + ' public ledgers'}</b>: ${esc(ledgerNames.join(', '))}` : ''}. Anyone with this page can recompute its root and compare, without asking anyone.</p><p><button type="button" class="bh-verify" id="bh-verify">verify this page now</button></p><p class="bh-result" id="bh-result"></p>${anchorLine}`;
+        const strip = `<p class="bh-strip"><b data-k="${weak.length ? 'let' : 'ok'}">Backed</b> by ${manIds.length} sources${weak.length ? ', ' + weak.length + ' to look at' : ''}. <b id="bh-strip-approved">Approved by 0 of ${pol.length}</b>. <b data-k="${signoffs.length ? 'ok' : 'let'}">${signoffs.length ? 'Checkable' : 'Not yet signed'}</b>${ledgerNames.length ? ' on ' + ledgerNames.length + (ledgerNames.length === 1 ? ' ledger' : ' ledgers') : ''}.</p>`;
+        const behind = `<section class="merkle bh" data-sub="behind">${strip}${backed}${who}${check}</section>\n`;
+        reviewMerkle = behind + `<div class="merkle mk-intro" data-sub="out"><p>Every approval is a leaf beside the output itself: literal ones by the machine, inferred ones by you. They fold to one root, which is what the hand-back carries and what a signature or an anchor covers.</p></div>\n<section class="merkle" data-sub="out" data-kind="review"><h2>Approvals, going out</h2><p class="loc">output root <code class="mk-root">${esc(oman.root)}</code></p><div id="mk-out" data-output-root="${attr(oman.root)}"${anchoredRoots.length ? ` data-anchored-root="${attr(anchoredRoots.join(' '))}"` : ''}${signedRoots.length ? ` data-signed-root="${attr(signedRoots.join(' '))}"` : ''}></div><p class="mk-what loc"></p><p class="loc mk-out-legend"></p>${anchorLine}</section>`;
     }
 
     const built = new Date().toISOString().slice(0, 10);
@@ -403,7 +435,7 @@ body[data-view=sources] .wrap,body[data-view=merkle] .wrap{right:0}
     }).join('') + Object.entries(snapshots).filter(([id]) => vis(id) === 'open').map(([id, txt]) => `<script type="text/plain" id="snap-${attr(id)}">${String(txt).replace(/<\/script/gi, '<\\/script')}</script>`).join('');
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProveML ${esc(name)}</title><style>${PROVEML_CSS}${CSS}${CHROME}
 /* house layer, read from its source at build time */
-${brandCss}</style></head><body class="proveml-root" data-view="full" data-sub="in">
+${brandCss}</style></head><body class="proveml-root" data-view="full" data-sub="behind">
 <div class="wrap">
 <div class="reviewbar"><div class="rv-row rv-mast"><h1 class="lockup">${brand ? (brand.mark ? `<span class="brand-mark">${esc(brand.mark)}</span>` : '') : MERKTEKEN}<span class="pml-name">${esc(brand && brand.name ? brand.name : 'proveml')}</span></h1><span class="rv-doc" title="${attr(storeName)}">${esc(storeName)}</span><span id="rv-progress"></span><span class="rv-view" role="group" aria-label="view"><button class="rv-vw" data-view="full" aria-pressed="true"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3h7v10h-7zM11.5 3h2v10h-2zM4.5 6h3M4.5 8.5h3"/></svg>full text</button><button class="rv-vw" data-view="sources" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3h4.5v4H2.5zM9 3h4.5v4H9zM2.5 9h4.5v4H2.5zM9 9h4.5v4H9z"/></svg>by source</button>${merkleTab}</span><button type="button" id="rv-theme" class="rv-theme" aria-label="switch between light and night"><svg class="rv-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z"/></svg>night</button></div><div class="rv-meter"><div class="rv-fill"></div></div><div class="rv-row rv-tools"><span class="rv-actions"><button id="rv-next" class="rv-btn rv-primary">next for you</button><button type="button" id="rv-only" class="rv-toggle rv-filter" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h12L9.5 8.5V13l-3 1.5V8.5z"/></svg>only what needs you</button><button id="rv-export" class="rv-link">copy the receipts</button><span class="rv-nav"><button id="rv-prev-src" class="rv-act rv-arrow" aria-label="previous block">\u2191 previous</button><button id="rv-next-src" class="rv-act rv-arrow" aria-label="next block">\u2193 next</button></span></span></div>${subTabs}</div>
 <p class="rv-lede" id="rv-breakdown"></p><p class="statline">${subjects.length} blocks, ${verified} values checked, built ${built}${brandCssSource ? `, styled from ${esc(brandCssSource.file)} at ${esc(brandCssSource.sha256.slice(0, 8))}` : ''}${brand ? ' on proveml' : ''}.</p>
@@ -723,7 +755,13 @@ body[data-handback] #rv-export{display:none}
 .statline{margin-top:0}
 .rv-batch{display:block;margin:0 0 .7rem;font-family:Lato,system-ui,sans-serif;font-size:.9rem;font-weight:600;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:.25em}
 .rv-actions .rv-nav{margin-left:.4rem}
-body[data-view=merkle][data-sub=in] .merkle[data-sub=in],body[data-view=merkle][data-sub=out] .merkle[data-sub=out]{display:block}
+body[data-view=merkle][data-sub=in] .merkle[data-sub=in],body[data-view=merkle][data-sub=out] .merkle[data-sub=out],body[data-view=merkle][data-sub=behind] .merkle[data-sub=behind]{display:block}
+.bh h2{font-size:1.15rem;margin:1.6rem 0 .3rem}.bh h2:first-of-type{margin-top:.4rem}
+.bh-strip{font-size:1.15rem;margin:0 0 1rem;max-width:none}.bh-answer{font-size:1.05rem;margin:0 0 .6rem;max-width:60ch}.bh-answer b,.bh-strip b{font-weight:700}.bh b[data-k=ok]{color:var(--mark-ok)}.bh b[data-k=let]{color:var(--mark-unk)}.bh b[data-k=nee]{color:var(--mark-bad)}
+.bh-register{display:grid;grid-template-columns:minmax(14rem,1.6fr) minmax(10rem,1.2fr) auto;column-gap:1.5rem;row-gap:.5rem;align-items:baseline;max-width:56rem}.bh-register .kop{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.72rem;color:var(--muted);letter-spacing:.02em}.bh-register .n{font-weight:500}.bh-register .n small{font-weight:400;color:var(--muted);font-size:.85em}.bh-register .m{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.78rem;color:var(--mark-ok)}.bh-register .m[data-k=stil]{color:var(--muted)}.bh-register .c{font-variant-numeric:tabular-nums;text-align:right;font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.78rem;color:var(--muted);white-space:nowrap}.bh-register .groep{grid-column:1/-1;font-weight:700;margin-top:.6rem}.bh-register .groep small{font-weight:400;color:var(--muted);margin-left:.4rem;font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.72rem}.bh-register .let{grid-column:1/-1;font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.76rem;color:var(--mark-unk);margin:-.3rem 0 .1rem}
+@media (max-width:56rem){.bh-register{grid-template-columns:1fr auto}.bh-register .m{grid-column:1/-1;margin-top:-.25rem}.bh-register .kop.m{display:none}}
+.bh-sq{display:inline-block;width:.62em;height:.62em;border:1.5px dashed var(--muted);border-radius:1px;vertical-align:.05em;margin-right:.45em}.bh-sq[data-k=ok]{border-style:solid;background:var(--mark-ok);border-color:var(--mark-ok)}.bh-sq[data-k=jij]{border-style:solid;background:var(--pv-inf);border-color:var(--pv-inf)}
+.bh-verify{font-family:Lato,system-ui,sans-serif;font-weight:700;color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:.35rem .9rem;cursor:pointer}.bh-verify:disabled{opacity:.6}.bh-result{margin:.5rem 0 0;font-size:.95rem}.bh-note{color:var(--muted);font-size:.9rem;max-width:60ch;margin:.5rem 0 0}
 .mk-thin-row{gap:1px}.mk-thin-row .mk-node{padding:0;min-width:2px;height:.55rem;font-size:0}
 .mk-leaves{display:flex;flex-wrap:wrap;gap:3px;margin:.6rem 0 .4rem}
 .mk-fold{margin:.3rem 0 .6rem}.mk-fold>summary{cursor:pointer;list-style:none;font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.78rem;color:var(--muted)}.mk-fold>summary::-webkit-details-marker{display:none}.mk-fold>summary::before{content:"+ "}.mk-fold[open]>summary::before{content:"\u2013 "}.mk-fold>summary:hover{color:var(--ink)}.mk-fold .mk-tree{margin-top:.5rem}
@@ -1297,6 +1335,43 @@ if (window.PROVEML_REVIEW_SUBMIT) {
             .then((r) => { if (r.ok) { btn.textContent = 'signed'; btn.disabled = true; } });
     });
 }
+// Who has approved this version: compared with the live root as it changes.
+(function () {
+    var host = document.getElementById('bh-approvals'); if (!host) return;
+    var apr = []; try { apr = JSON.parse(host.dataset.approvals || '[]'); } catch (e) {}
+    var paintApprovals = function (root) {
+        var done = 0; var people = host.querySelectorAll('.bh-person');
+        people.forEach(function (p) {
+            var mine = apr.filter(function (a) { return a.by === p.dataset.email; });
+            var here = mine.filter(function (a) { return a.root === root; })[0];
+            var sq = p.querySelector('.bh-sq'); var st = p.nextElementSibling; var when = st && st.nextElementSibling;
+            if (here) { done++; sq.dataset.k = 'jij'; st.textContent = 'approved this version'; st.removeAttribute('data-k'); when.textContent = String(here.at).slice(0, 10) + ', with a passkey'; }
+            else if (mine.length) { delete sq.dataset.k; st.textContent = 'approved an earlier version'; st.dataset.k = 'stil'; when.textContent = String(mine[mine.length - 1].at).slice(0, 10); }
+            else { delete sq.dataset.k; st.textContent = 'not yet'; st.dataset.k = 'stil'; when.textContent = ''; }
+        });
+        var strip = document.getElementById('bh-strip-approved');
+        if (strip) { strip.textContent = 'Approved by ' + done + ' of ' + people.length; strip.dataset.k = people.length && done === people.length ? 'ok' : (done ? 'jij' : ''); }
+    };
+    document.addEventListener('proveml:root', function (e) { paintApprovals(e.detail.root); });
+    var btn = document.getElementById('bh-verify'); var out = document.getElementById('bh-result');
+    if (btn) btn.addEventListener('click', function () {
+        btn.disabled = true; out.textContent = 'recomputing the root from this page\u2026';
+        var once = function (e) {
+            document.removeEventListener('proveml:root', once);
+            var host2 = document.getElementById('mk-out');
+            var anchored = ((host2 && host2.dataset.anchoredRoot) || '').split(' ').filter(Boolean);
+            var signed = ((host2 && host2.dataset.signedRoot) || '').split(' ').filter(Boolean);
+            var r = e.detail.root; var parts = ['This page folds to root ' + r.slice(0, 12) + '\u2026 in your browser.'];
+            if (signed.length) parts.push(signed.indexOf(r) >= 0 ? 'It equals the signed root.' : 'It differs from the signed root: judgements since the last sign-off are not under a signature.');
+            if (anchored.length) parts.push(anchored.indexOf(r) >= 0 ? 'It equals the roots on the ledgers.' : 'It differs from the roots on the ledgers: judgements since the last hand-back are not on any log yet.');
+            if (e.detail.open) parts.push(e.detail.open + ' readings are still open and not in the root.');
+            out.textContent = parts.join(' '); btn.disabled = false;
+        };
+        document.addEventListener('proveml:root', once);
+        drawOutgoing();
+    });
+})();
+
 // Hovering the tree lights an inclusion proof: the node itself, the
 // sibling hashes a verifier needs (amber), and the path it recomputes
 // (green). The caption says it in words; the edit simulation keeps

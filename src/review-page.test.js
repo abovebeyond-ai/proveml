@@ -203,6 +203,23 @@ console.log('review-page: grades ride beside the reading and into the judgement'
     assert('the verdict is unchanged by visibility', r.verified === reviewPage({ store, subjects: subj, snapshots: { held: heldText }, manifests: { held: man } }).verified);
 }
 
+// Who stands behind this: the answer first, sources weakest first, approvals live, a verify button.
+{
+    const man = buildManifest('What is iXBRL? iXBRL embeds extra tags into the HTML standard, and more.', { html: false });
+    const subj = [{ ...subjects[0], evidence: [subjects[0].evidence[0]] }];
+    const r = reviewPage({ store, subjects: subj, manifests: { ixbrl: man }, sourceTitles: { ixbrl: 'the iXBRL page' }, sourceGroups: [{ title: 'works it cites', ids: ['ixbrl'] }],
+        signatures: { ixbrl: { level: 'witnessed', issuer: 'x', method: 'tls-transport+rfc3161', transport: { host: 'x' }, witness: { url: 'w', archive: 'a', at: 't' }, timestamp: { tsa: 'f' } } },
+        approvals: { policy: { mustApprove: ['shane@example.org', 'ilse@example.org'] }, approvals: [{ by: 'ilse@example.org', root: 'r1', at: '2026-09-09T10:00:00Z' }] } });
+    assert('the third tab is named for the reader', r.html.includes('>who stands behind this</button>'));
+    assert('the answer comes first', r.html.includes('class="merkle bh" data-sub="behind"') && r.html.includes('<b data-k="ok">Backed</b> by 1 sources'));
+    assert('a source carries its rungs as words', /class="m">copy, checked live, archived, timestamped</.test(r.html));
+    assert('the policy is said in words', r.html.includes('<b>shane@example.org and ilse@example.org</b> must all approve'));
+    assert('the approvals travel for the live comparison', r.html.includes('data-approvals="') && r.html.includes('ilse@example.org'));
+    assert('a stranger has a verify button', r.html.includes('id="bh-verify"'));
+    const weak = reviewPage({ store, subjects: subj, manifests: { ixbrl: man }, localSources: ['ixbrl'], runs: { ixbrl: { command: 'x', cwd: '.', repo: { commit: 'abc', uncommittedChanges: 0 }, startedAt: '2026-09-03T10:00:00Z', durationMs: 12, exitCode: 0, sameAsSnapshot: false, stdoutSha256: 'deadbeefdeadbeef', stderrTail: [] } } });
+    assert('a source that differs on rerun comes first, in amber', weak.html.includes('<b data-k="let">1 to look at</b>') && weak.html.includes('class="let">rerun on 2026-09-03 gave different bytes'));
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 
 console.log('\n=== review-page: a manifested quote carries its proof ===');
