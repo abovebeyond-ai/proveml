@@ -288,3 +288,20 @@ test('a reading may carry its own question and basis label', () => {
     assert.ok(html.includes('not found in the files'));
     assert.ok(!html.includes('did it read this right?'));
 });
+
+test('how to check this: answer first, a check in the browser, the hashes folded away', () => {
+    const text = 'one line\ntwo line\nthree line';
+    const manifest = buildManifest(text, { html: false, source: 'src' });
+    const { html } = reviewPage({
+        store: { 'p:1.name': 'p', 'p:1.v': 'two' },
+        subjects: [{ id: 'p1', title: '', claim: 'It says %[p:1.v]{two}.', evidence: [{ field: 'p:1.v', claimValue: 'two', basis: 'quote', source: 'src', sourceQuote: 'two line', sourceLocator: 'src' }] }],
+        snapshots: { src: text }, manifests: { src: manifest },
+    });
+    assert.ok(html.includes('check it here, in your browser'));
+    assert.ok(html.includes('<b>What this proves.</b>'));
+    assert.ok(html.includes('the proof, step by step'));
+    const m = html.match(/data-path="([^"]*)"/); assert.ok(m);
+    const path = JSON.parse(m[1].replace(/&quot;/g, '"'));
+    assert.equal(path.length, manifest.leaves.length > 1 ? Math.ceil(Math.log2(manifest.leaves.length)) : 0);
+    assert.ok(!html.includes('root unattested:'));
+});

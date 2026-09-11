@@ -405,6 +405,10 @@ body[data-view=full] .pair[data-caption] .col:first-child{font-size:.93rem;line-
 .ev-prov summary::-webkit-details-marker{display:none}
 .ev-prov summary:hover{color:var(--ink);text-decoration:underline}
 .ev-prov-body{font-size:.82rem;line-height:1.55;color:var(--muted);padding:.45rem 0 0}
+.ev-prov-body p{margin:0 0 .5rem}.ev-prov-body p b{color:var(--ink);font-weight:700}
+.ev-check{display:flex;flex-wrap:wrap;gap:.6rem;align-items:baseline}.ev-check-btn{font-family:inherit;font-size:.85rem;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:.3em}
+.ev-check-out[data-state=ok]{color:var(--mark-ok)}.ev-check-out[data-state=bad]{color:var(--mark-bad);font-weight:700}.ev-check-out[data-state=na]{color:var(--muted)}
+.ev-steps{margin:.2rem 0 0}.ev-steps summary{cursor:pointer;color:var(--muted);list-style:none;text-underline-offset:.3em}.ev-steps summary::-webkit-details-marker{display:none}.ev-steps summary:hover{color:var(--ink);text-decoration:underline}.ev-steps ol{margin:.3rem 0 .5rem 1.2rem;padding:0}
 .ev-prov-body p{margin:0 0 .45rem}
 .ev-prov-body ol{margin:.2rem 0 .55rem 1.1rem;padding:0}
 .ev-prov code{background:none;padding:0;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:.9em}
@@ -555,15 +559,20 @@ function proofNoteFor(s, e, manifest, b, proofs, lead, signature) {
     const rungs = signature
         ? [signature.witness ? 'witnessed' : '', signature.timestamp ? 'timestamped' : '', signature.transport ? 'TLS' : '', (!signature.level || signature.level === 'signed') && signature.issuer ? 'signed' : ''].filter(Boolean).join(', ')
         : '';
-    const line = `${lead ? ', ' : ''}block ${b.leafIndex + 1} of ${manifest.leaves.length}, root ${short(b.root)}${rungs ? `, <span class="sig">${rungs}</span>` : ', unattested'}`;
+    const line = `${lead ? ', ' : ''}block ${b.leafIndex + 1} of ${manifest.leaves.length}${rungs ? `, <span class="sig">${rungs}</span>` : ''}`;
     const steps = (b.proof && b.proof.path ? b.proof.path : []).map((st, k) => `<li>level ${k + 1}: sibling on the ${st.side === 'L' ? 'left' : 'right'} ${short(st.hash)}</li>`).join('');
-    const wit = signature && signature.witness ? `<p><a href="${attr(signature.witness.url)}">independent copy at ${esc(signature.witness.archive)}</a>, ${esc(signature.witness.at)}</p>` : '';
+    const wit = signature && signature.witness ? ` <a href="${attr(signature.witness.url)}">An independent copy sits at ${esc(signature.witness.archive)}</a>, taken ${esc(signature.witness.at)}.` : '';
+    const path = JSON.stringify((b.proof && b.proof.path ? b.proof.path : []).map((st) => ({ s: st.side, h: st.hash })));
+    const vouch = signature ? `Root ${attestText(signature)}.` : 'Nobody yet: the root rests on the capture alone.';
+    // Answer first: what the reader can do, what it proves, who vouches, what a yes holds on to.
+    // The hashes and the recipe fold away underneath for whoever wants to recompute by hand.
     const reveal = `<details class="ev-prov"><summary>how to check this</summary><div class="ev-prov-body">`
-        + (signature ? `<p>root ${attestText(signature)}</p>` : '<p>root unattested: this archive rests on the capture alone.</p>') + wit
-        + `<p>inclusion proof for block ${b.leafIndex + 1}: its leaf ${short(b.leafHash)} is sha256 of the word leaf, a NUL byte, and the block's text.</p>`
-        + `<ol>${steps}<li>root ${short(b.root)}</li></ol>`
-        + `<p>to recompute: h = sha256("leaf" + NUL + block); at each level h = sha256("node" + NUL + (sibling on the left ? sibling + h : h + sibling)); h must equal the root. Hover a hash for the full value.</p>`
-        + `<p>your yes is keyed to this block and the blocks either side: ${neighborhood.map(short).join(' ')}</p>`
+        + `<p class="ev-check"><button type="button" class="rv-link ev-check-btn" data-source="${attr(e.source || s.id)}" data-i="${b.leafIndex}" data-hash="${attr(b.leafHash)}" data-root="${attr(b.root)}" data-path="${attr(path)}">check it here, in your browser</button><span class="ev-check-out" aria-live="polite"></span></p>`
+        + `<p><b>What this proves.</b> Block ${b.leafIndex + 1} hashes to ${short(b.leafHash)}, and the path from that hash reaches the file's root ${short(b.root)}. Same root, same file: the passage was in the source as it was captured.</p>`
+        + `<p><b>Who vouches for the file.</b> ${vouch}${wit}</p>`
+        + `<p><b>What your yes holds on to.</b> This block and the blocks either side. If any of the three changes, the yes falls away and the reading comes back to be judged.</p>`
+        + `<details class="ev-steps"><summary>the proof, step by step</summary><p>leaf ${short(b.leafHash)} is sha256 of the word leaf, a NUL byte, and the block's text.</p><ol>${steps}<li>root ${short(b.root)}</li></ol>`
+        + `<p>To recompute: h = sha256("leaf" + NUL + block); at each level h = sha256("node" + NUL + (sibling on the left ? sibling + h : h + sibling)); h must equal the root. Hover a hash for the full value. The blocks either side: ${neighborhood.map(short).join(' ')}</p></details>`
         + `</div></details>`;
     return { line, reveal };
 }
@@ -1465,6 +1474,32 @@ document.addEventListener('mouseout', (e) => {
 // The source, in full, on request: opened from any reading, with what that
 // reading rests on highlighted. The text was archived once and sits in the
 // page as data; nothing is fetched.
+// "check it here": the block's hash and the path to the root, recomputed in this browser
+// from the source text on the page, with the manifest's own rules (NFC, zero-width stripped,
+// whitespace squashed, non-empty lines as blocks). The answer names what it found.
+(function () {
+    var NUL = String.fromCharCode(0);
+    var canon = function (t) { return String(t).normalize('NFC').replace(/[\u200B\u200C\u200D\uFEFF]/g, '').replace(/[^\S\n]+/g, ' ').split('\n').map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; }); };
+    var leafText = function (sid, i) {
+        if (window.VeraLeaves && window.VeraLeaves[sid] && typeof window.VeraLeaves[sid][i] === 'string') return window.VeraLeaves[sid][i];
+        var el = document.getElementById('snap-' + sid); if (!el || el.dataset.enc) return null;
+        var leaves = canon(el.textContent || ''); return typeof leaves[i] === 'string' ? leaves[i] : null;
+    };
+    var shortH = function (h) { return String(h).slice(0, 12) + '\u2026'; };
+    document.addEventListener('click', async function (e) {
+        var btn = e.target.closest && e.target.closest('.ev-check-btn'); if (!btn) return;
+        var out = btn.parentNode.querySelector('.ev-check-out'); if (!out) return;
+        var say = function (state, text) { out.dataset.state = state; out.textContent = text; };
+        var text = leafText(btn.dataset.source, Number(btn.dataset.i));
+        if (text === null) { say('na', 'Cannot check here: the block\u2019s text is not on this page (sealed, or still locked). Unlock it first, or recompute from the file.'); return; }
+        var h = await sha256hex('leaf' + NUL + text);
+        if (h !== btn.dataset.hash) { say('bad', 'Not the same. The block on this page hashes to ' + shortH(h) + ', the manifest says ' + shortH(btn.dataset.hash) + '. Do not rely on this reading.'); return; }
+        var path = []; try { path = JSON.parse(btn.dataset.path || '[]'); } catch (err) {}
+        for (var k = 0; k < path.length; k++) h = await sha256hex('node' + NUL + (path[k].s === 'L' ? path[k].h + h : h + path[k].h));
+        if (h !== btn.dataset.root) { say('bad', 'The block matches, the path does not: it lands on ' + shortH(h) + ', not the root ' + shortH(btn.dataset.root) + '. Do not rely on this reading.'); return; }
+        say('ok', 'Checked just now: the block hashes to ' + shortH(btn.dataset.hash) + ' and the path reaches the root. What you read is what was captured.');
+    });
+})();
 (function () {
     var modal = document.getElementById('rv-modal'); if (!modal) return;
     var body = document.getElementById('rv-modal-body'), title = document.getElementById('rv-modal-title');
