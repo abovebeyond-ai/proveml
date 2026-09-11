@@ -226,7 +226,8 @@ console.log('\n=== review-page: a manifested quote carries its proof ===');
 {
     const man = buildManifest('What is iXBRL? iXBRL embeds extra tags into the HTML standard, and more.', { html: false });
     const r = reviewPage({ store, subjects, manifests: { ixbrl: man } });
-    assert('locator names the block and root', r.html.includes('block 1 of 1, root <code class="h" title="' + man.root + '">' + man.root.slice(0, 12)));
+    assert('locator names the block', r.html.includes('block 1 of 1'));
+    assert('the root sits in the panel, in words', r.html.includes('reaches the file\u2019s root <code class="h" title="' + man.root + '">' + man.root.slice(0, 12)) || r.html.includes("reaches the file's root <code class=\"h\" title=\"" + man.root));
     assert('the proof rides the return', r.proofs.length === 1 && r.proofs[0].subject === 'ixbrl' && r.proofs[0].field === 'category');
     assert('a stranger can verify it', verifyInclusion(man.root, man.leaves[r.proofs[0].leafIndex].text, r.proofs[0].proof));
     assert('a tampered root fails', !verifyInclusion(man.root.replace(/^./, man.root[0] === 'a' ? 'b' : 'a'), man.leaves[0].text, r.proofs[0].proof));
@@ -263,9 +264,6 @@ console.log('\n=== review-page: a manifested quote carries its proof ===');
     }), /single leaf/));
 }
 
-process.exit(failed > 0 ? 1 : 0);
-
-
 // === a verifier mismatch: refused by default, carried on request ===
 {
     console.log('\n=== review-page: a mismatch is the most important thing to show ===');
@@ -279,17 +277,18 @@ process.exit(failed > 0 ? 1 : 0);
     assert('a yes on it is guarded', r.html.includes('rv-guard'));
 }
 
-test('a reading may carry its own question and basis label', () => {
+{
+    console.log('\n=== review-page: a reading may carry its own question and basis label ===');
     const { html } = reviewPage({
         store: { 'p:1.name': 'this paragraph', 'p:1.v1': '999' },
         subjects: [{ id: 'p1', title: '', claim: 'It says %[p:1.v1]{999} things.', evidence: [{ field: 'p:1.v1', claimValue: '999', basis: 'derived', note: 'nowhere', question: 'do you stand behind this as written?', basisLabel: 'not found in the files' }] }],
     });
-    assert.ok(html.includes('do you stand behind this as written?'));
-    assert.ok(html.includes('not found in the files'));
-    assert.ok(!html.includes('did it read this right?'));
-});
+    assert('the question is the builder\'s', html.includes('do you stand behind this as written?') && !html.includes('did it read this right?'));
+    assert('the basis line is the builder\'s', html.includes('not found in the files'));
+}
 
-test('how to check this: answer first, a check in the browser, the hashes folded away', () => {
+{
+    console.log('\n=== review-page: how to check this, answer first ===');
     const text = 'one line\ntwo line\nthree line';
     const manifest = buildManifest(text, { html: false, source: 'src' });
     const { html } = reviewPage({
@@ -297,11 +296,14 @@ test('how to check this: answer first, a check in the browser, the hashes folded
         subjects: [{ id: 'p1', title: '', claim: 'It says %[p:1.v]{two}.', evidence: [{ field: 'p:1.v', claimValue: 'two', basis: 'quote', source: 'src', sourceQuote: 'two line', sourceLocator: 'src' }] }],
         snapshots: { src: text }, manifests: { src: manifest },
     });
-    assert.ok(html.includes('check it here, in your browser'));
-    assert.ok(html.includes('<b>What this proves.</b>'));
-    assert.ok(html.includes('the proof, step by step'));
-    const m = html.match(/data-path="([^"]*)"/); assert.ok(m);
-    const path = JSON.parse(m[1].replace(/&quot;/g, '"'));
-    assert.equal(path.length, manifest.leaves.length > 1 ? Math.ceil(Math.log2(manifest.leaves.length)) : 0);
-    assert.ok(!html.includes('root unattested:'));
-});
+    assert('a check in the browser comes first', html.includes('check it here, in your browser') && html.includes('<b>What this proves.</b>'));
+    assert('the hashes fold away', html.includes('the proof, step by step') && !html.includes('root unattested:'));
+    const m = html.match(/class="rv-link ev-check-btn"[^>]*data-path="([^"]*)"/);
+    const path = m ? JSON.parse(m[1].replace(/&quot;/g, '"')) : null;
+    assert('the path rides the button', Array.isArray(path) && path.length === 2 && path.every((st) => /^[LR]$/.test(st.s) && /^[0-9a-f]{64}$/.test(st.h)));
+    const canonLine = html.match(/var canon = function[^\n]*/)[0];
+    assert('the emitted script escapes its regexes', canonLine.includes("split('\\n')") && canonLine.includes('[^\\S\\n]+') && canonLine.includes('\\u200B'));
+}
+
+console.log(`\n${passed} passed, ${failed} failed\n`);
+process.exit(failed > 0 ? 1 : 0);
