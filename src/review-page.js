@@ -1479,7 +1479,7 @@ document.addEventListener('mouseout', (e) => {
 // whitespace squashed, non-empty lines as blocks). The answer names what it found.
 (function () {
     var NUL = String.fromCharCode(0);
-    var canon = function (t) { return String(t).normalize('NFC').replace(/[\u200B\u200C\u200D\uFEFF]/g, '').replace(/[^\S\n]+/g, ' ').split('\n').map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; }); };
+    var canon = function (t) { return String(t).normalize('NFC').replace(/[\\u200B\\u200C\\u200D\\uFEFF]/g, '').replace(/[^\\S\\n]+/g, ' ').split('\\n').map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; }); };
     var leafText = function (sid, i) {
         if (window.VeraLeaves && window.VeraLeaves[sid] && typeof window.VeraLeaves[sid][i] === 'string') return window.VeraLeaves[sid][i];
         var el = document.getElementById('snap-' + sid); if (!el || el.dataset.enc) return null;
