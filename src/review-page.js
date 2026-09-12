@@ -66,7 +66,8 @@ export function evidenceReviewId(subjectId, e, leafHashes) {
     // and a yes survives exactly where that neighborhood kept its
     // fingerprints, and nowhere else.
     const anchored = leafHashes && leafHashes.length ? `${quotes}\u0001${leafHashes.join('\u0000')}` : quotes;
-    return reviewId(subjectId, e.field, e.claimValue, e.basis, anchored, e.note || '');
+    // The builder's note is commentary around the reading, not the reading: it stays out of the key.
+    return reviewId(subjectId, e.field, e.claimValue, e.basis, anchored, '');
 }
 
 /**
@@ -175,13 +176,20 @@ export function reviewPage(opts) {
             if (!allowMismatch || Object.keys(mm).length !== v.errors.length) throw new Error(`${s.id}: ${v.errors.join('; ')}`);
             s.mismatch = mm;
         }
-        const left = renderProveml(s.claim, store).html;
+        // A caption's lead ("Figure 1.") runs into its first sentence, as it does in the
+        // paper; standing outside the rendered block it sat on a line of its own.
+        let left = renderProveml(s.claim, store).html;
+        if (s.capLead) {
+            const lead = `<span class="rv-cap-lead">${esc(s.capLead)}.</span> `;
+            const at = left.indexOf('<p class="proveml-paragraph">');
+            left = at >= 0 ? left.slice(0, at + 29) + lead + left.slice(at + 29) : lead + left;
+        }
         const right = (s.evidence || []).map((e) => evidenceBlock(s, e, snapshots, ids, manifests[e.source || s.id], proofs, signatures[e.source || s.id], gradeOnYes, priv)).join('');
         const meta = s.meta ? `${esc(s.meta)} ` : '';
         return `<section class="pair" id="${attr(s.id)}"${s.heading ? ' data-heading data-level="' + attr(s.level || 1) + '"' : ''}${s.pre ? ' data-pre' : ''}${s.scan ? ' data-scan="' + attr(s.scan) + '"' : ''}${s.capLead ? ' data-caption' : ''}${s.scan === 'clean' ? ' title="checked, nothing to confirm"' : ''}>
   <header><h2><span class="nr">${String(i + 1).padStart(2, '0')}</span>${esc(s.title)}</h2><p class="meta">${meta}${v.verified}/${v.total} claims verified, ${(s.evidence || []).length} fields of evidence.</p></header>
   <div class="cols">
-    <div class="col"><div class="lbl">${esc(leftLabel)}</div>${s.image ? `<figure class="rv-fig"><img src="${attr(s.image.src)}" alt="${attr(s.image.alt || '')}"></figure>` : ''}${s.capLead ? `<span class="rv-cap-lead">${esc(s.capLead)}.</span> ` : ''}${left}</div>
+    <div class="col"><div class="lbl">${esc(leftLabel)}</div>${s.image ? `<figure class="rv-fig"><img src="${attr(s.image.src)}" alt="${attr(s.image.alt || '')}"></figure>` : ''}${left}</div>
     <div class="col"><div class="lbl">${esc(rightLabel)}</div>${right}</div>
   </div>
 </section>`;
@@ -390,12 +398,27 @@ body[data-view=full] .pair[data-note]:not([data-note='']):not([data-heading]):ho
 .rv-modal-body{overflow:auto;padding:1rem 1.4rem 1.4rem;white-space:pre-wrap;font-size:.95rem;line-height:1.6;color:var(--ink)}
 .rv-modal-body mark{background:rgba(229,181,103,.45);color:inherit;padding:0 .1em;border-radius:2px}
 .rv-see{font-size:.85rem}
+.ev-acts{display:flex;flex-wrap:wrap;gap:.2rem 1.1rem;align-items:baseline;margin:0 0 .7rem}
+.ev-acts .rv-link,.ev-acts .ev-prov summary{font-family:Lato,system-ui,sans-serif;font-size:.85rem;color:var(--accent);text-decoration:underline;text-underline-offset:.3em}
+.ev-acts .rv-link:hover,.ev-acts .ev-prov summary:hover{color:var(--ink)}
+.ev-acts .ev-prov{margin:0;flex:0 1 auto}.ev-acts .ev-prov[open]{flex-basis:100%}
+.evidence .loc{margin:0 0 .45rem}
+.note .note-lbl{color:var(--muted)}.note .note-use{color:var(--ink)}
+.note-q{margin:.3rem 0 0;font-size:.9rem;font-weight:700;color:var(--ink)}
+.ev-more,.ev-mentions{margin:0 0 .7rem}
+.ev-more summary,.ev-mentions summary{cursor:pointer;list-style:none;font-family:Lato,system-ui,sans-serif;font-size:.85rem;color:var(--muted);text-decoration:underline;text-underline-offset:.3em}
+.ev-more summary::-webkit-details-marker,.ev-mentions summary::-webkit-details-marker{display:none}
+.ev-more summary:hover,.ev-mentions summary:hover{color:var(--ink)}
+.ev-more[open]>summary{margin-bottom:.5rem}
+.ev-mentions ol{margin:.4rem 0 0 1.1rem;padding:0;font-size:.88rem;line-height:1.45}
+.ev-mentions li{margin:0 0 .3rem}
+.ev-mentions .rv-jump{color:var(--ink);text-decoration:underline;text-underline-offset:.3em;text-decoration-color:var(--haze-line)}
+.ev-mentions .rv-jump:hover{text-decoration-color:var(--ink)}
 .rv-fig{margin:.5rem 0 1rem}
 .rv-fig img{display:block;max-width:100%;height:auto;padding:.7rem;box-sizing:border-box;border:1px solid var(--haze-line);border-radius:4px;background:var(--surface)}
 .pair[data-caption]{padding:.6rem 0 1.3rem}
 body[data-view=full] .pair[data-caption] .col:first-child{font-size:.93rem;line-height:1.55;color:var(--muted);padding-right:2.5rem}
 .rv-cap-lead{font-weight:700;color:var(--ink)}
-.pair[data-caption] .col:first-child .proveml-paragraph:first-child{display:inline}
 .pair[data-figure] .col:first-child{cursor:default}
 .reviewbar .rv-btn,.reviewbar .rv-link,.reviewbar .rv-act,.reviewbar .rv-filter,.rv-more summary,.rv-more-menu,.rv-more-menu .rv-vw{font-family:Lato,system-ui,sans-serif;font-size:.9rem;letter-spacing:0}
 .reviewbar .rv-meter{max-width:none}
@@ -418,12 +441,15 @@ html,body{height:100%;overflow:hidden}
 .rv-panel{position:fixed;top:var(--bar-h,6.7rem);right:0;bottom:0;width:25rem;background:var(--surface);border-left:1px solid var(--haze-line);display:flex;flex-direction:column;z-index:8;font-family:Lato,system-ui,sans-serif}
 .rv-panel-head{display:flex;justify-content:space-between;align-items:center;padding:.75rem 1.1rem;border-bottom:1px solid var(--haze-line);font-weight:700;font-size:.92rem}
 .rv-panel-body{flex:1;overflow:auto;padding:1rem 1.1rem}
-.rv-panel-foot{border-bottom:1px solid var(--haze-line);padding:.6rem 1.1rem;background:var(--surface)}
+.rv-panel-nav{border-bottom:1px solid var(--haze-line);padding:.6rem 1.1rem;background:var(--surface)}
+.rv-panel-nav:empty{display:none}
+.rv-panel-nav .rv-actions{margin:0;gap:1rem;flex-wrap:wrap}
+.rv-panel-foot{border-top:1px solid var(--haze-line);padding:.55rem 1.1rem;background:var(--surface);display:flex;flex-wrap:wrap;gap:.25rem 1rem;align-items:baseline;font-size:.85rem;color:var(--muted)}
 .rv-panel-foot:empty{display:none}
-.rv-panel-foot .rv-actions{margin:0;gap:1rem;flex-wrap:wrap}
 .rv-actions .rv-btn.rv-primary{background:var(--accent);color:#fff;font-weight:700;padding:.32rem .85rem;border-radius:4px;border:1px solid var(--accent);text-decoration:none}
-.rv-panel-foot .rv-nav{margin-left:auto}
-.rv-panel-foot .rv-btn,.rv-panel-foot .rv-link,.rv-panel-foot .rv-act,.rv-panel-foot .rv-note{font-family:Lato,system-ui,sans-serif;font-size:.9rem;letter-spacing:0}
+.rv-panel-nav .rv-nav{margin-left:auto}
+.rv-panel-nav .rv-btn,.rv-panel-nav .rv-link,.rv-panel-nav .rv-act,.rv-panel-nav .rv-note,.rv-panel-foot .rv-btn,.rv-panel-foot .rv-link,.rv-panel-foot .rv-act,.rv-panel-foot .rv-note{font-family:Lato,system-ui,sans-serif;font-size:.9rem;letter-spacing:0}
+.rv-panel-foot .rv-note{font-size:.85rem}
 body[data-view=full] .rv-tools{display:none}
 .rv-panel-empty{color:var(--muted);font-size:.95rem;line-height:1.5}
 .rv-panel .col{border:none;background:none;padding:0;position:static;font-size:.95rem}
@@ -444,13 +470,33 @@ body[data-view=sources] .wrap,body[data-view=merkle] .wrap{right:0}
 /* house layer, read from its source at build time */
 ${brandCss}</style></head><body class="proveml-root" data-view="full" data-sub="behind">
 <div class="wrap">
-<div class="reviewbar"><div class="rv-row rv-mast"><h1 class="lockup">${brand ? (brand.mark ? `<span class="brand-mark">${esc(brand.mark)}</span>` : '') : MERKTEKEN}<span class="pml-name">${esc(brand && brand.name ? brand.name : 'proveml')}</span></h1><span class="rv-doc" title="${attr(storeName)}">${esc(storeName)}</span><span id="rv-progress"></span><span class="rv-view" role="group" aria-label="view"><button class="rv-vw" data-view="full" aria-pressed="true"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3h7v10h-7zM11.5 3h2v10h-2zM4.5 6h3M4.5 8.5h3"/></svg>full text</button><button class="rv-vw" data-view="sources" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3h4.5v4H2.5zM9 3h4.5v4H9zM2.5 9h4.5v4H2.5zM9 9h4.5v4H9z"/></svg>by source</button>${merkleTab}</span><button type="button" id="rv-theme" class="rv-theme" aria-label="switch between light and night"><svg class="rv-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z"/></svg>night</button></div><div class="rv-meter"><div class="rv-fill"></div></div><div class="rv-row rv-tools"><span class="rv-actions"><button id="rv-next" class="rv-btn rv-primary">next for you</button><button type="button" id="rv-only" class="rv-toggle rv-filter" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h12L9.5 8.5V13l-3 1.5V8.5z"/></svg>only what needs you</button><button id="rv-export" class="rv-link">copy the receipts</button><span class="rv-nav"><button id="rv-prev-src" class="rv-act rv-arrow" aria-label="previous block">\u2191 previous</button><button id="rv-next-src" class="rv-act rv-arrow" aria-label="next block">\u2193 next</button></span></span></div>${subTabs}</div>
+<div class="reviewbar"><div class="rv-row rv-mast"><h1 class="lockup">${brand ? (brand.mark ? `<span class="brand-mark">${esc(brand.mark)}</span>` : '') : MERKTEKEN}<span class="pml-name">${esc(brand && brand.name ? brand.name : 'proveml')}</span></h1><span class="rv-doc" title="${attr(storeName)}">${esc(storeName)}</span><span id="rv-progress"></span><span class="rv-view" role="group" aria-label="view"><button class="rv-vw" data-view="full" aria-pressed="true"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3h7v10h-7zM11.5 3h2v10h-2zM4.5 6h3M4.5 8.5h3"/></svg>full text</button><button class="rv-vw" data-view="sources" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3h4.5v4H2.5zM9 3h4.5v4H9zM2.5 9h4.5v4H2.5zM9 9h4.5v4H9z"/></svg>by source</button>${merkleTab}</span><button type="button" id="rv-theme" class="rv-theme" aria-label="switch between light and night"><svg class="rv-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z"/></svg>night</button></div><div class="rv-meter"><div class="rv-fill"></div></div><div class="rv-row rv-tools"><span class="rv-actions"><button id="rv-next" class="rv-btn rv-primary">next for you</button><button type="button" id="rv-only" class="rv-toggle rv-filter" aria-pressed="false"><svg class="rv-ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h12L9.5 8.5V13l-3 1.5V8.5z"/></svg>only what needs you</button><button id="rv-export" class="rv-link">copy the receipts</button><span class="rv-nav"><button id="rv-prev-src" class="rv-act rv-arrow" aria-label="previous block">\u2191 block</button><button id="rv-next-src" class="rv-act rv-arrow" aria-label="next block">\u2193 block</button></span></span></div>${subTabs}</div>
 <p class="rv-lede" id="rv-breakdown"></p><p class="statline">${subjects.length} blocks, ${verified} values checked, built ${built}${brandCssSource ? `, styled from ${esc(brandCssSource.file)} at ${esc(brandCssSource.sha256.slice(0, 8))}` : ''}${brand ? ' on proveml' : ''}.</p>
 ${cards}
 ${merkleView}${reviewMerkle.replace('</div>\n', '</div>\n' + adapterList(adapters && adapters.out, 'out') + '\n')}
-</div>${snapStore}<div id="rv-modal" hidden><div class="rv-modal-back"></div><div class="rv-modal-card" role="dialog" aria-modal="true"><header class="rv-modal-head"><span id="rv-modal-title"></span><button id="rv-modal-close" class="rv-link">close</button></header><div id="rv-modal-body" class="rv-modal-body"></div></div></div><aside id="rv-panel" class="rv-panel" aria-label="source"><div class="rv-panel-head"><span>Source</span><button id="rv-panel-close" class="rv-link">close</button></div><div class="rv-panel-foot" id="rv-panel-foot"></div><div class="rv-panel-body"><p class="rv-panel-empty">Click a marked value in the paper to see where it comes from, then decide here.</p></div></aside>${committedTag}<script>${SCRIPT}</script></body></html>`;
+</div>${snapStore}<div id="rv-modal" hidden><div class="rv-modal-back"></div><div class="rv-modal-card" role="dialog" aria-modal="true"><header class="rv-modal-head"><span id="rv-modal-title"></span><button id="rv-modal-close" class="rv-link">close</button></header><div id="rv-modal-body" class="rv-modal-body"></div></div></div><aside id="rv-panel" class="rv-panel" aria-label="source"><div class="rv-panel-head"><span>Source</span><button id="rv-panel-close" class="rv-link">close</button></div><div class="rv-panel-nav" id="rv-panel-nav"></div><div class="rv-panel-body"><p class="rv-panel-empty">Click a marked value in the paper to see where it comes from, then decide here.</p></div><div class="rv-panel-foot" id="rv-panel-foot"></div></aside>${committedTag}<script>${SCRIPT}</script></body></html>`;
 
     return { html, verified, total, ids, proofs, roots };
+}
+
+// A builder's note usually reads "<label>: "<the paper's sentence>" <the question?>";
+// shown as three things, not one grey paragraph. Any other note stays one line.
+function noteHtml(note, value) {
+    if (!note) return '';
+    const m = String(note).match(/^([^"\u201c]*?:)\s*(["\u201c][\s\S]*?["\u201d])\s*([^"\u201c\u201d]*\?)\s*$/);
+    if (!m) return `<p class="note">${esc(note)}</p>`;
+    // the words the paper marked, bold inside its own sentence, so the reader sees which span this is about
+    let use = esc(m[2]);
+    if (value) { const v = esc(value); const i = use.indexOf(v); if (i >= 0) use = use.slice(0, i) + '<b>' + v + '</b>' + use.slice(i + v.length); }
+    return `<p class="note"><span class="note-lbl">${esc(m[1])}</span> <span class="note-use">${use}</span></p><p class="note-q">${esc(m[3])}</p>`;
+}
+
+// A work cited in several places: this reading is one mention; the others are a fold
+// of jumps, each to the paragraph that carries it.
+function mentionsHtml(mentions) {
+    if (!Array.isArray(mentions) || !mentions.length) return '';
+    const cut = (t) => { const s = String(t || '').replace(/\s+/g, ' ').trim(); return s.length > 120 ? s.slice(0, 117).replace(/\s\S*$/, '') + '\u2026' : s; };
+    return `<details class="ev-mentions"><summary>also cited ${mentions.length === 1 ? 'once more' : mentions.length + ' more times'} in the paper</summary><ol>${mentions.map((m) => `<li><a href="#${attr(m.id)}" class="rv-jump" data-jump="${attr(m.id)}">${esc(cut(m.sent))}</a></li>`).join('')}</ol></details>`;
 }
 
 function isLiteral(e) {
@@ -614,7 +660,10 @@ function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature, gradeO
         const { ct, nonce } = priv.gcm(sid, `${b.root}:q:${b.leafIndex}`, q.sourceQuote);
         return `<p class="quote rv-locked" data-source="${attr(sid)}" data-root="${attr(b.root)}" data-i="${b.leafIndex}" data-hash="${attr(b.leafHash)}" data-qct="${ct}" data-qnonce="${nonce}">locked: decrypts on your device</p>`;
     };
-    const seeBtn = (hl, hl2, label) => shown ? `<p class="loc"><button class="rv-link rv-see" data-source="${attr(sid)}" data-hl="${attr(hl)}"${hl2 !== undefined ? ` data-hl2="${attr(hl2)}"` : ''}>${label}</button></p>` : (vis === 'withheld' ? `<p class="loc"><button class="rv-link rv-see" data-source="${attr(sid)}" data-hl="" data-hl-locked>${label}</button></p>` : '');
+    const seeBtn = (hl, hl2, label) => shown ? `<button class="rv-link rv-see" data-source="${attr(sid)}" data-hl="${attr(hl)}"${hl2 !== undefined ? ` data-hl2="${attr(hl2)}"` : ''}>${label}</button>` : (vis === 'withheld' ? `<button class="rv-link rv-see" data-source="${attr(sid)}" data-hl="" data-hl-locked>${label}</button>` : '');
+    // What the reader can do with this evidence sits on one row, as links; the
+    // locator above it is data, the note below it is the question.
+    const acts = (...parts) => { const inner = parts.filter(Boolean).join(''); return inner ? `<div class="ev-acts">${inner}</div>` : ''; };
     const literal = isLiteral(e);
     let rid;
     let bundles = null;
@@ -646,20 +695,22 @@ function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature, gradeO
             const pn = proofNoteFor(s, e, manifest, bundles && bundles[0], proofs, loc || link, signature) || { line: '', reveal: '' };
             const ctx = shown ? quoteContext(snapshots[sid], q.sourceQuote) : '';
             const see = seeBtn(q.sourceQuote, undefined, 'see the whole source');
-            body = `${quoteHtml(q, bundles && bundles[0], ctx)}${loc || link || pn.line ? `<p class="loc">${loc}${link}${pn.line}</p>` : ''}${pn.reveal}${see}`;
+            body = `${quoteHtml(q, bundles && bundles[0], ctx)}${loc || link || pn.line ? `<p class="loc">${loc}${link}${pn.line}</p>` : ''}${acts(see, pn.reveal)}`;
         } else {
-            body = quotes.map((q, qi) => {
+            const parts = quotes.map((q, qi) => {
                 const pn = proofNoteFor(s, e, manifest, bundles && bundles[qi], proofs, q.sourceLocator, signature) || { line: '', reveal: '' };
                 const loc = q.sourceLocator || pn.line ? `<p class="loc">${esc(String(q.sourceLocator || '').replace(/_/g, ' '))}${pn.line}</p>` : '';
                 const ctx = shown ? quoteContext(snapshots[sid], q.sourceQuote) : '';
-                return `${quoteHtml(q, bundles && bundles[qi], ctx)}${loc}${pn.reveal}`;
-            }).join('');
+                return `${quoteHtml(q, bundles && bundles[qi], ctx)}${loc}${acts(pn.reveal)}`;
+            });
+            // one passage in view; the others fold, so a reading is one thing to read first
+            body = parts[0] + (parts.length > 1 ? `<details class="ev-more"><summary>${parts.length - 1 === 1 ? 'one more passage' : parts.length - 1 + ' more passages'} from this source</summary>${parts.slice(1).join('')}</details>` : '');
             body += `<p class="loc">each verbatim in the${e.sourceHref ? ` <a href="${attr(e.sourceHref)}">archived source</a>` : ' archived source'}</p>`;
         }
     } else if (e.basis === 'derived') {
         rid = evidenceReviewId(s.id, e);
         ids.push(rid);
-        body = `<p class="basis basis-derived">${esc(e.basisLabel || 'derived, not quoted')}</p>${e.source ? seeBtn(String(e.claimValue), String(e.note || ''), 'see the source it was derived from') : ''}`;
+        body = `<p class="basis basis-derived">${esc(e.basisLabel || 'derived, not quoted')}</p>${e.source ? acts(seeBtn(String(e.claimValue), String(e.note || ''), 'see the source it was derived from')) : ''}`;
     } else if (e.basis === 'absence') {
         rid = evidenceReviewId(s.id, e);
         ids.push(rid);
@@ -667,12 +718,12 @@ function evidenceBlock(s, e, snapshots, ids, manifest, proofs, signature, gradeO
         // evidence is the whole source, handed to the reviewer to scan. So
         // when the archive is here, it unfolds right under the claim.
         body = `<p class="basis basis-absence">rests on absence: you cannot quote a source not having something</p>`;
-        body += seeBtn('', undefined, 'scan the whole source');
+        body += acts(seeBtn('', undefined, 'scan the whole source'));
     } else {
         throw new Error(`${s.id}.${e.field}: unknown basis "${e.basis}".`);
     }
     if (!rid) { rid = evidenceReviewId(s.id, e); ids.push(rid); }
-    return `<div class="evidence" data-evidence-field="${attr(e.field)}"${literal ? ' data-literal' : ''}><p class="ev-head"><code>${esc(e.field)}</code> = <b>${esc(String(e.claimValue))}</b>${e.grade ? `<span class="mk-slot ev-grade" title="evidentiary grade of this fact in the snapshot">${esc(String(e.grade))}</span>` : ''}${literal ? '<span class="lit">value appears in the quote</span>' : ''}</p>${body}${e.note ? `<p class="note">${esc(e.note)}</p>` : ''}
+    return `<div class="evidence" data-evidence-field="${attr(e.field)}"${literal ? ' data-literal' : ''}><p class="ev-head"><b>${esc(String(e.claimValue))}</b>${e.grade ? `<span class="mk-slot ev-grade" title="evidentiary grade of this fact in the snapshot">${esc(String(e.grade))}</span>` : ''}${literal ? '<span class="lit">value appears in the quote</span>' : ''}</p><p class="ev-key" title="the field this value is stored under">${esc(e.field)}</p>${body}${noteHtml(e.note, String(e.claimValue))}${mentionsHtml(e.mentions)}
 <div class="reading" data-review="${rid}" data-src="${attr(s.id)}" data-field="${attr(e.field)}"${literal ? ' data-literal' : ''}${e.grade ? ` data-grade="${attr(String(e.grade))}"${gradeOnYes && gradeOnYes[e.grade] ? ` data-grade-on-yes="${attr(gradeOnYes[e.grade])}"` : ''}` : ''}${s.mismatch && s.mismatch[e.field] ? ` data-mismatch="${attr(s.mismatch[e.field])}"` : ''}><span class="j">our reading</span><span class="q">${s.mismatch && s.mismatch[e.field] ? `<b class="mm">the verifier disagrees: the source says ${esc(s.mismatch[e.field])}</b>` : (literal ? 'the value is right there in the quote' : esc(e.question || 'did it read this right?'))}</span>
 <div class="review"><button class="rv" data-verdict="fair">yes</button><button class="rv" data-verdict="flag">no</button><span class="rv-state"></span></div></div></div>`;
 }
@@ -897,11 +948,12 @@ body[data-view=merkle][data-sub=in] .mk-rail{display:flex;grid-column:1;grid-row
 .ev-scan{margin:.2rem 0 .5rem}
 .ev-scan summary{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.74rem;color:var(--accent);cursor:pointer}
 .ev-scan-text{white-space:pre-wrap;font-size:.88rem;color:var(--muted);border-left:2px solid var(--haze-line);padding-left:.85rem;margin:.4rem 0 0;max-height:16rem;overflow:auto}
-.ev-head{margin:0 0 .4rem}.ev-grade{margin-left:.6em;vertical-align:.15em}.ev-head code{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.82rem}
+.ev-head{margin:0 0 .15rem}.ev-key{margin:0 0 .5rem;font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.72rem;color:var(--muted);word-break:break-all}.ev-grade{margin-left:.6em;vertical-align:.15em}.ev-head code{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.82rem}
 .basis{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.74rem;margin:0 0 .3rem}
 .basis-derived{color:var(--muted)}
 .basis-absence{color:var(--mark-unk)}
 .evidence.paired{background:var(--mark-inf-vlak);border-radius:3px;box-shadow:0 0 0 6px var(--mark-inf-vlak)}
+.col .proveml-fact.paired{background:var(--mark-inf-vlak);box-shadow:0 0 0 3px var(--mark-inf-vlak);border-radius:2px}
 .review{display:flex;gap:.5rem;align-items:center;margin:0 0 0 auto}
 button.rv{font-family:"Spline Sans Mono",ui-monospace,monospace;font-size:.72rem;letter-spacing:.04em;padding:.3rem .7rem;border:1px solid var(--haze-line);border-radius:999px;background:none;color:var(--muted);cursor:pointer;transition:background .12s,color .12s,border-color .12s,opacity .12s;-webkit-tap-highlight-color:transparent}
 button.rv:hover{border-color:var(--muted);color:var(--ink)}
@@ -975,6 +1027,23 @@ const committed = (window.PROVEML_REVIEW_COMMITTED && window.PROVEML_REVIEW_COMM
 let local = {}; try { local = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
 const merged = () => { const m = { ...committed }; for (const [k, v] of Object.entries(local)) { if (v === null) delete m[k]; else m[k] = v; } return m; };
 const readings = [...document.querySelectorAll('.reading[data-review]')];
+// A judgement whose key no longer matches any reading (its quotes or its note changed in a
+// rebuild) still names the paragraph and the field it judged. Carry it onto today's key, so
+// a rebuild does not ask again what was answered. A rewritten paragraph is a new question.
+{
+    const have = new Set(readings.map((r) => r.dataset.review));
+    const byPlace = {}, byWork = {}, fieldOf = {};
+    for (const r of readings) {
+        byPlace[r.dataset.src + '\u0001' + r.dataset.field] = r.dataset.review; fieldOf[r.dataset.review] = r.dataset.field;
+        const m = /^citation:([^.]+)\.cited_/.exec(r.dataset.field || ''); if (m) byWork[r.dataset.src + '\u0001' + m[1]] = r.dataset.review;
+    }
+    for (const [rid, j] of Object.entries(committed)) {
+        if (!j || have.has(rid) || !j.src || !j.field) continue;
+        const m = /^citation:([^.]+)\.cited_/.exec(j.field);
+        const to = byPlace[j.src + '\u0001' + j.field] || (m ? byWork[j.src + '\u0001' + m[1]] : undefined);
+        if (to && !committed[to]) committed[to] = { ...j, field: fieldOf[to], rekeyedFrom: rid };
+    }
+}
 // A value that sits verbatim in its quote is confirmed by the machine, not by a person:
 // recorded as such, covered by the sign-off, and open to being overruled from the panel.
 { let wrote = false; const have = merged();
@@ -1065,8 +1134,8 @@ try { applyTheme(localStorage.getItem(THEME) || 'paper'); } catch {}
 document.addEventListener('click', (e) => { const b = e.target.closest('#rv-theme'); if (!b) return; const t = document.body.dataset.theme === 'night' ? 'paper' : 'night'; applyTheme(t); try { localStorage.setItem(THEME, t); } catch {} b.blur(); });
 function placeActions() {
     const acts = document.querySelector('.rv-actions'); if (!acts) return;
-    const foot = document.getElementById('rv-panel-foot'); const tools = document.querySelector('.rv-tools');
-    const target = document.body.dataset.view === 'full' && foot ? foot : tools;
+    const nav = document.getElementById('rv-panel-nav'); const tools = document.querySelector('.rv-tools');
+    const target = document.body.dataset.view === 'full' && nav ? nav : tools;
     if (target && acts.parentElement !== target) target.appendChild(acts);
 }
 placeActions();
@@ -1142,7 +1211,7 @@ function paint() {
         const parts = [needBound ? needBound + ' on what a source supports' : '', needInf ? needInf + ' on your own text' : ''].filter(Boolean);
         const second = open ? ' ' + you(open) + (open === 1 ? ' reading needs' : ' readings need') + ' your judgement' + (parts.length > 1 ? ', ' + parts.join(' and ') + '.' : '.') : ' Nothing is left for you.';
         const third = flagged ? ' You said no to <b data-k="no">' + flagged + '</b>.' : '';
-        bd.innerHTML = first + second + third; return;
+        bd.innerHTML = first + second + third;
     }
     document.dispatchEvent(new CustomEvent('proveml:paint'));
     const lb = document.getElementById('rv-literal');
@@ -1192,7 +1261,14 @@ document.addEventListener('click', (e) => {
             local[id] = { verdict: b.dataset.verdict, src: el.dataset.src, field: el.dataset.field, at: new Date().toISOString(), ...(el.dataset.grade ? { grade: el.dataset.grade, ...(b.dataset.verdict === 'fair' && el.dataset.gradeOnYes ? { satisfies: el.dataset.gradeOnYes } : {}) } : {}), ...(el.dataset.span ? { inference: true, span: el.dataset.span, kind: el.dataset.kind || '', why: el.dataset.why || '' } : {}) };
         }
         persist(); paint(); b.blur();
-        if (merged()[id]) el.closest('.evidence')?.removeAttribute('data-expanded');
+        if (merged()[id]) {
+            el.closest('.evidence')?.removeAttribute('data-expanded');
+            // the judged reading folds, so the next open one in this paragraph comes to the top of the panel
+            const saved = merged();
+            const list = [...document.querySelectorAll('#rv-panel .reading[data-review]')];
+            const next = list.slice(list.indexOf(el) + 1).find((r) => !saved[r.dataset.review]);
+            if (next) (next.closest('.evidence') || next).scrollIntoView({ block: 'start', behavior: 'smooth' });
+        }
     }
     if (e.target.id === 'rv-literal') {
         for (const r of readings) if (r.hasAttribute('data-literal') && !merged()[r.dataset.review]) {
@@ -1236,6 +1312,13 @@ document.addEventListener('click', (e) => {
             if (ev) { ev.dataset.home = card.id; panelBody.appendChild(ev); const empty = panelBody.querySelector('.rv-panel-empty'); if (empty && ev.querySelector('.evidence')) empty.hidden = true; else if (empty) { empty.hidden = false; empty.textContent = card.dataset.scan === 'pending' ? 'Nothing here is bound to a source. The model pass has not read this paragraph yet.' : 'Nothing here is bound to a source and the model proposed nothing. Nothing to judge.'; } if (false) empty.hidden = true; }
         }
     };
+    const jp = e.target.closest('.rv-jump');
+    if (jp) {
+        e.preventDefault();
+        const card = document.getElementById(jp.dataset.jump);
+        if (card) { card.removeAttribute('data-closed'); if (document.body.dataset.view === 'full') activate(card); card.scrollIntoView({ block: 'center' }); }
+        return;
+    }
     if (e.target.id === 'rv-panel-close') {
         restorePanel();
         document.querySelectorAll('.pair[data-active]').forEach((p) => p.removeAttribute('data-active'));
@@ -1467,7 +1550,19 @@ document.addEventListener('mouseover', (e) => {
     const card = f.closest('.pair');
     if (card && field) card.querySelectorAll('.evidence[data-evidence-field="' + field + '"]').forEach(x => x.classList.add('paired'));
 });
+document.addEventListener('mouseover', (e) => {
+    const ev = e.target.closest('.evidence[data-evidence-field]');
+    if (!ev) return;
+    const card = document.getElementById(ev.closest('.col[data-home]')?.dataset.home || '') || ev.closest('.pair');
+    if (!card) return;
+    const field = ev.dataset.evidenceField;
+    for (const f of card.querySelectorAll('.col .proveml-fact')) {
+        const path = f.dataset.path || '';
+        if (path === field || path.split('.').slice(1).join('.') === field) f.classList.add('paired');
+    }
+});
 document.addEventListener('mouseout', (e) => {
+    if (e.target.closest?.('.evidence[data-evidence-field]')) document.querySelectorAll('.proveml-fact.paired').forEach(x => x.classList.remove('paired'));
     if (e.target.closest?.('.col .proveml-fact')) document.querySelectorAll('.evidence.paired').forEach(x => x.classList.remove('paired'));
     if (e.target.closest?.('.proveml-entity, .proveml-fact, .quote[data-tip]')) tip.hidden = true;
 });
@@ -1479,7 +1574,7 @@ document.addEventListener('mouseout', (e) => {
 // whitespace squashed, non-empty lines as blocks). The answer names what it found.
 (function () {
     var NUL = String.fromCharCode(0);
-    var canon = function (t) { return String(t).normalize('NFC').replace(/[\u200B\u200C\u200D\uFEFF]/g, '').replace(/[^\S\n]+/g, ' ').split('\n').map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; }); };
+    var canon = function (t) { return String(t).normalize('NFC').replace(/[\u200B\u200C\u200D\uFEFF]/g, '').replace(/[^\\S\\n]+/g, ' ').split('\\n').map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; }); };
     var leafText = function (sid, i) {
         if (window.VeraLeaves && window.VeraLeaves[sid] && typeof window.VeraLeaves[sid][i] === 'string') return window.VeraLeaves[sid][i];
         var el = document.getElementById('snap-' + sid); if (!el || el.dataset.enc) return null;

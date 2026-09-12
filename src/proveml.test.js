@@ -810,6 +810,10 @@ console.log('\n=== Display: the store formats, the claim stays canonical ===');
     assert('render keeps the canonical value', html.includes('data-value="391035000000 USD"') && html.includes('shown as $391.0 billion'), html);
     assert('a mismatch is never prettified', verifyProveml('@[company:aapl]{Apple Inc.} %[revenue]{1 USD}', store).details[1].display === undefined);
     assert('stripProveml keeps the canonical text', stripProveml(md).includes('391035000000 USD'));
+    // The paper's own sentence: the model writes the value as the store holds it, and the
+    // rounded form in its place fails. Readability is the renderer's job, never the model's.
+    const rounded = verifyProveml('@[company:aapl]{Apple Inc.} reported revenue of %[revenue]{$391 billion}.', store);
+    assert('the rounded form in the claim fails', rounded.verified === 1 && rounded.total === 2 && rounded.details[1].status === 'value-mismatch', JSON.stringify(rounded.details.map(x => x.status)));
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
