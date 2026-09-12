@@ -179,6 +179,19 @@ export function reviewPage(opts) {
         // A caption's lead ("Figure 1.") runs into its first sentence, as it does in the
         // paper; standing outside the rendered block it sat on a line of its own.
         let left = renderProveml(s.claim, store).html;
+        // A table block arrives as lines of cells separated by " | " (the paper's adapter keeps rows
+        // that way so every cell can carry a mark). Marks never contain a pipe or a newline, so the
+        // rendered paragraph splits back into rows and cells; the first row is the header, a row
+        // without pipes spans the table (a group label such as "Core (numeric comparison)").
+        if (s.pre && /\n/.test(s.claim) && s.claim.split('\n').filter((l) => l.includes(' | ')).length >= 2) {
+            const m = left.match(/^([\s\S]*?<p class="proveml-paragraph">)([\s\S]*?)(<\/p>[\s\S]*)$/);
+            if (m) {
+                const rows = m[2].split('\n').filter((r) => r.trim());
+                const width = Math.max(...rows.map((r) => r.split(' | ').length));
+                const tr = (cells, tag) => `<tr>${cells.length === 1 && width > 1 ? `<${tag} colspan="${width}" class="rv-group">${cells[0]}</${tag}>` : cells.map((c) => `<${tag}>${c.trim()}</${tag}>`).join('')}</tr>`;
+                left = m[1].replace(/<p class="proveml-paragraph">$/, '') + `<table class="rv-table"><thead>${tr(rows[0].split(' | '), 'th')}</thead><tbody>${rows.slice(1).map((r) => tr(r.split(' | '), 'td')).join('')}</tbody></table>` + m[3].replace(/^<\/p>/, '');
+            }
+        }
         if (s.capLead) {
             const lead = `<span class="rv-cap-lead">${esc(s.capLead)}.</span> `;
             const at = left.indexOf('<p class="proveml-paragraph">');
@@ -799,6 +812,11 @@ body[data-view=full] .pair[data-scan=checked] .col:first-child,body[data-view=fu
 pre.proveml-code{display:block;white-space:pre-wrap;padding:.8rem 1rem;margin:.4rem 0;line-height:1.5;font-size:.84rem}
 pre.proveml-code code{background:none;padding:0;font-size:inherit}
 .pair[data-pre] .col:first-child .proveml,.pair[data-pre] .col:first-child{white-space:pre-wrap;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:.86rem;line-height:1.55}
+.pair[data-pre] .col:first-child .rv-table{white-space:normal;font-family:inherit;font-size:.9rem;border-collapse:collapse;width:100%;margin:.2rem 0}
+.rv-table th,.rv-table td{text-align:left;vertical-align:top;padding:.3rem .55rem .3rem 0;border-bottom:1px solid var(--haze-line)}
+.rv-table th{font-weight:600;color:var(--ink)}
+.rv-table .rv-group{font-style:italic;color:var(--muted);padding-top:.55rem}
+.rv-table td:not(:first-child),.rv-table th:not(:first-child){font-variant-numeric:tabular-nums}
 body[data-view=full] .cols{margin-top:0}
 .merkle{display:none;border-top:1px solid var(--haze-line);padding:1.3rem 0 .9rem}
 .mk-intro{border-top:none;padding-top:0}
