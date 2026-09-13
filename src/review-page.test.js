@@ -153,6 +153,7 @@ console.log('\n=== review-page: hover context and brand ===');
     assert('the primary action is a rectangular button', r.html.includes('class="rv-btn rv-primary"') && !/rv-btn[^{]*border-radius:999px/.test(r.html));
     assert('view switch ships', r.html.includes('data-view="full"') && r.html.includes('aria-pressed="true"'));
     assert('literal evidence not collapsed unjudged', !r.html.includes('[data-literal]:not([data-judged]):not([data-expanded])'));
+    assert('a judged reading unfolds when its mark in the text is clicked', r.html.includes("if (ev.hasAttribute('data-judged')) ev.setAttribute('data-expanded', '')"));
     assert('no snapshot, no tip', !reviewPage({ store, subjects: [{ ...subjects[0], evidence: [subjects[0].evidence[0]] }] }).html.includes('title="What is'));
 }
 

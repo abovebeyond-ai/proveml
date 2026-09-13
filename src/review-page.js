@@ -1351,7 +1351,10 @@ document.addEventListener('click', (e) => {
         if (pf) {
             const field = (pf.dataset.path || '').split('.').slice(1).join('.');
             const ev = card.querySelector('.evidence[data-evidence-field="' + field + '"]');
-            if (ev) { ev.scrollIntoView({ block: 'nearest' }); ev.classList.add('paired'); setTimeout(() => ev.classList.remove('paired'), 1600); }
+            // A judged reading sits folded to its head; a click on its mark in the text is a
+            // request to see it again (the passage, the question, the verdict), so it unfolds
+            // (2026-09-13: an approved citation clicked in the paper showed only its head).
+            if (ev) { if (ev.hasAttribute('data-judged')) ev.setAttribute('data-expanded', ''); ev.scrollIntoView({ block: 'nearest' }); ev.classList.add('paired'); setTimeout(() => ev.classList.remove('paired'), 1600); }
         }
         return;
     }
