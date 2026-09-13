@@ -1,0 +1,39 @@
+# De tests op elke push en elke pull request.
+#
+# Tot 13 september 2026 draaiden de tests van dit pakket alleen op een tag, als poort
+# voor de release. Een pull request kon dus groen gemerged worden zonder dat iets
+# buiten de laptop van de indiener de tests had gezien, en sinds de werkbank door de
+# control-gateway voorstelt (abovebeyond-ai/control) is die laptop niet meer de plek
+# waar het bewijs hoort te liggen: de rechter draait niet op de machine van de dader.
+# Dezelfde stappen als release.yml, zonder de publicatie; op Node 20 en 24, de
+# ondergrens uit package.json en de versie waarmee gepubliceerd wordt.
+name: tests
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        node: ['20', '24']
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+
+      # Zonder dit draaien de tests op een machine zonder markdown-it, en dat
+      # faalt op een manier die niets zegt over het pakket zelf.
+      - name: afhankelijkheden
+        run: npm ci
+
+      - name: tests
+        run: npm test
